@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brown_200">#FFEABFB0</color>
+    <color name="brown_500">#FFB78F80</color>
+    <color name="brown_700">#FF866153</color>
+    <color name="purple_100">#FFF8BBD0</color>
+    <color name="purple_500">#FFC473FF</color>
+    <color name="purple_700">#FF8756FF</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <color name="background_card">#33DDDDDD</color>
+</resources>

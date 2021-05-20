@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:layout_marginHorizontal="8dp">
+    <TextView
+        android:id="@+id/txt_stepNumber"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:textSize="32dp"
+        android:text="1."
+        android:layout_marginRight="8dp"/>
+    <TextView
+        android:id="@+id/txt_stepDescription"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:text="Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam"/>
+</LinearLayout>
