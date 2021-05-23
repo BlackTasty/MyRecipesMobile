@@ -1,12 +1,21 @@
 package com.tastyapps.myrecipesmobile;
 
+import android.content.pm.PackageManager;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Bundle;
 
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.widget.AppCompatTextView;
 import androidx.cardview.widget.CardView;
+import androidx.core.content.FileProvider;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.os.Environment;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.DisplayMetrics;
@@ -25,18 +34,26 @@ import android.widget.Toolbar;
 import com.github.ksoichiro.android.observablescrollview.ObservableScrollView;
 import com.github.ksoichiro.android.observablescrollview.ObservableScrollViewCallbacks;
 import com.github.ksoichiro.android.observablescrollview.ScrollState;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.tastyapps.myrecipesmobile.adapters.PreparationStepAdapter;
 import com.tastyapps.myrecipesmobile.adapters.RecipeIngredientAdapter;
 import com.tastyapps.myrecipesmobile.core.ScrollLockedLinearLayoutManager;
+import com.tastyapps.myrecipesmobile.core.mobile.Client;
 import com.tastyapps.myrecipesmobile.core.recipes.Ingredient;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
 import com.tastyapps.myrecipesmobile.core.recipes.RecipeIngredient;
 import com.tastyapps.myrecipesmobile.core.util.EnumUtils;
+import com.tastyapps.myrecipesmobile.core.util.ImageUtil;
 import com.tastyapps.myrecipesmobile.core.util.NumberUtils;
 import com.tastyapps.myrecipesmobile.storage.RecipeStorage;
 
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -46,6 +63,12 @@ import java.util.List;
 public class RecipeViewFragment extends Fragment implements ObservableScrollViewCallbacks {
     private TextWatcher textWatcherInputServings;
     private TextWatcher textWatcherInputHoverServings;
+    private ImageUtil imageUtil;
+
+    private ActivityResultLauncher<Uri> imageFromCamera;
+    private File tempImageFile;
+    private ActivityResultLauncher<String[]> imageFromGallery;
+    private String[] tempSelectedImage;
 
     private static final String ARG_GUID = "guid";
 
@@ -71,6 +94,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
     private TextView txtPreparationStepsTitle;
     private Button btnIncreaseServings;
     private Button btnDecreaseServings;
+    private Button btnUploadImage;
 
     private CardView containerIngredients;
     private CardView containerHoverIngredients;
@@ -108,6 +132,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerLaunchers();
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
             final String guid = getArguments().getString(ARG_GUID);
@@ -119,6 +144,34 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
             originalRecipeIngredients = recipe.cloneIngredients();
             desiredServings = recipe.Servings;
         }
+    }
+
+    private void registerLaunchers() {
+        imageFromCamera = registerForActivityResult(new ActivityResultContracts.TakePicture(),
+                new ActivityResultCallback<Boolean>() {
+                    @Override
+                    public void onActivityResult(Boolean result) {
+                        if (result) {
+                            Client.getInstance().sendImage("recipes/upload/" + recipe.Guid,
+                                    ImageUtil.fileToByteArray(tempImageFile));
+                        }
+                    }
+                });
+
+        imageFromGallery = registerForActivityResult(new ActivityResultContracts.OpenDocument(),
+                new ActivityResultCallback<Uri>() {
+                    @Override
+                    public void onActivityResult(Uri result) {
+                        Log.d("RecipeViewFragment", "tempImage array size: " + (tempSelectedImage != null ? tempSelectedImage.length : 0));
+                        if (tempSelectedImage != null && tempSelectedImage.length > 0) {
+                            Log.d("RecipeViewFragment", "tempImage array first item: " + tempSelectedImage[0]);
+                            if (result != null) {
+                                Client.getInstance().sendImage("recipes/upload/" + recipe.Guid,
+                                        ImageUtil.imageUriToByteArray(getContext(), result));
+                            }
+                        }
+                    }
+                });
     }
 
     @Override
@@ -207,6 +260,17 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
             }
         });
 
+        btnUploadImage = view.findViewById(R.id.btn_upload_image);
+        btnUploadImage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showUploadImageSheetDialog();
+            }
+        });
+
+        boolean hasCamera = this.getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
+        btnUploadImage.setVisibility(!hasCamera || recipe.isImageSet() ? View.GONE : View.VISIBLE);
+
         listSteps.setLayoutManager(new ScrollLockedLinearLayoutManager(getActivity()));
         listHoverIngredients.setLayoutManager(new ScrollLockedLinearLayoutManager(getActivity()));
         if (preparationStepAdapter == null) {
@@ -258,6 +322,91 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         setIngredientListVisible(!ingredientListVisible);
     }
 
+    private void takePhoto() {
+        tempImageFile = createImageFile();
+        Log.d("RecipeViewFragment", "Created temp file in path: " + tempImageFile.getAbsolutePath());
+        Log.d("RecipeViewFragment", "File exists: " + tempImageFile.exists());
+
+        Uri tempImageUri = FileProvider.getUriForFile(this.getContext(),
+                getActivity().getApplicationContext().getPackageName() + ".provider", tempImageFile);
+
+        imageFromCamera.launch(tempImageUri);
+    }
+
+    private void uploadFromGallery() {
+        imageFromGallery.launch(tempSelectedImage);
+    }
+
+    private File createImageFile() {
+        // Create an image file name
+        String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmmss", Locale.GERMAN).format(new Date());
+        String imageFileName = timeStamp + "_" + recipe.Name;
+        File storageDir = getActivity().getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        File image = null;
+        try {
+            image = File.createTempFile(
+                    imageFileName,  /* prefix */
+                    ".jpg",         /* suffix */
+                    storageDir      /* directory */
+            );
+        } catch (IOException e) {
+            Log.d("RecipeViewFragment", "Error creating image!");
+            e.printStackTrace();
+        }
+
+        // Save a file: path for use with ACTION_VIEW intents
+        //currentPhotoPath = image.getAbsolutePath();
+        return image;
+    }
+
+    private void showUploadImageSheetDialog() {
+        if (this.getContext() == null) {
+            return;
+        }
+
+        imageUtil = ImageUtil.getInstance(this);
+        /*imageUtil.setImageActionListener(new ImageUtil.ImageActionListener() {
+            @Override
+            public void onImageSelectedFromGallery(Uri uri, File imageFile) {
+                Log.d("RecipeViewFragment", "Uploading image from gallery to server");
+                Client.getInstance().sendImage("recipes/upload/" + recipe.Guid, ImageUtil.fileToByteArray(imageFile));
+            }
+
+            @Override
+            public void onImageTakenFromCamera(Uri uri, File imageFile) {
+                Log.d("RecipeViewFragment", "Uploading image from camera to server");
+                Client.getInstance().sendImage("recipes/upload/" + recipe.Guid, ImageUtil.fileToByteArray(imageFile));
+            }
+
+            @Override
+            public void onImageCropped(Uri uri, File imageFile) {
+
+            }
+        });*/
+
+        final BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this.getContext());
+        bottomSheetDialog.setContentView(R.layout.layout_sheet_upload_image);
+
+        AppCompatTextView btnUploadFromGallery = bottomSheetDialog.findViewById(R.id.btn_upload_from_gallery);
+        btnUploadFromGallery.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                uploadFromGallery();
+                //imageUtil.selectImageFromGallery();
+            }
+        });
+        AppCompatTextView btnUploadFromCamera = bottomSheetDialog.findViewById(R.id.btn_upload_from_camera);
+        btnUploadFromCamera.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                takePhoto();
+                //imageUtil.takePhotoWithCamera();
+            }
+        });
+
+
+        bottomSheetDialog.show();
+    }
 
     /**
      * Applies text from a source EditText field to another (copyCat)

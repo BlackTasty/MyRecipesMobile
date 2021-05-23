@@ -7,4 +7,4 @@
     android:text="Category"
     android:layout_marginHorizontal="2dp"
     android:textColor="@color/black"
-    app:chipBackgroundColor="@color/purple_100"/>
+    app:chipBackgroundColor="@color/light_green_400"/>

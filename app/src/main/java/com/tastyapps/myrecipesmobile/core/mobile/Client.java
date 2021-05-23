@@ -5,6 +5,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.tastyapps.myrecipesmobile.core.events.OnClientConnectedEventListener;
+import com.tastyapps.myrecipesmobile.core.events.OnClientDestroyedEventListener;
 import com.tastyapps.myrecipesmobile.core.events.OnClientDisconnectedEventListener;
 import com.tastyapps.myrecipesmobile.core.events.OnTopicReceivedEventListener;
 import com.tastyapps.myrecipesmobile.core.recipes.Ingredient;
@@ -26,6 +27,7 @@ import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.EventListener;
 
 public class Client implements MqttCallback {
     private static final Client instance = new Client();
@@ -37,6 +39,7 @@ public class Client implements MqttCallback {
     private OnClientConnectedEventListener onClientConnectedEventListener;
     private OnClientDisconnectedEventListener onClientDisconnectedEventListener;
     private OnTopicReceivedEventListener onTopicReceivedEventListener;
+    private OnClientDestroyedEventListener onClientDestroyedEventListener;
 
     private MqttAndroidClient client;
     private boolean connected;
@@ -44,6 +47,7 @@ public class Client implements MqttCallback {
     private Client() {
         onClientConnectedEventListener = null;
         onClientDisconnectedEventListener = null;
+        onClientDestroyedEventListener = null;
     }
 
     public static Client getInstance() {
@@ -62,12 +66,16 @@ public class Client implements MqttCallback {
         this.onTopicReceivedEventListener = onTopicReceivedEventListener;
     }
 
+    public void setOnClientDestroyedEventListener(OnClientDestroyedEventListener onClientDestroyedEventListener) {
+        this.onClientDestroyedEventListener = onClientDestroyedEventListener;
+    }
+
     public boolean isConnected() {
         return connected;
     }
 
     public String getClientId() {
-        return client.getClientId();
+        return client != null ? client.getClientId() : "";
     }
 
     public void connect(Context appContext, String address, String username, String password) {
@@ -89,6 +97,7 @@ public class Client implements MqttCallback {
         if (!TextUtils.isEmpty(password)) {
             mqttConnectOptions.setPassword(password.toCharArray());
         }
+        mqttConnectOptions.setConnectionTimeout(5);
 
         try{
             client.setCallback(this);
@@ -98,6 +107,7 @@ public class Client implements MqttCallback {
                 public void onSuccess(IMqttToken asyncActionToken) {
                     connected = false;
                     if (onClientConnectedEventListener != null) {
+                        Log.d("Client", "Connection established");
                         onClientConnectedEventListener.onConnected();
                         connected = true;
                     }
@@ -106,6 +116,7 @@ public class Client implements MqttCallback {
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
                     if (onClientConnectedEventListener != null) {
+                        Log.d("Client", "Connection failed");
                         onClientConnectedEventListener.onFail(exception);
                     }
                 }
@@ -126,6 +137,11 @@ public class Client implements MqttCallback {
             addressCurrent = null;
             usernameCurrent = null;
             passwordCurrent = null;
+
+            if (client == null) {
+                fireOnClientDestroyed();
+                return;
+            }
 
             client.disconnect().setActionCallback(new IMqttActionListener() {
                 @Override
@@ -148,15 +164,50 @@ public class Client implements MqttCallback {
         }
     }
 
-    public void sendMessage(String topic, String payload) {
+    public void sendImage(String topic, byte[] imageBytes) {
+        if (client == null) {
+            return;
+        }
+
         try {
             if (!client.isConnected()) {
                 client.connect();
             }
 
-            MqttMessage message = new MqttMessage();
-            if (payload != null) {
-                message.setPayload(payload.getBytes());
+            client.publish(topic, imageBytes, 0, false, null, new IMqttActionListener() {
+                @Override
+                public void onSuccess(IMqttToken asyncActionToken) {
+                    Log.d("MQTT - Send", "Successfully published image to topic \"" + topic + "\"!");
+                }
+
+                @Override
+                public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
+                    Log.d("MQTT - Send", "Error publishing image to topic \"" + topic + "\"!");
+                }
+            });
+        } catch (MqttException e) {
+            Log.d("MQTT - Send", "An exception has been thrown while trying to publish image to topic \"" + topic + "\"!");
+            e.printStackTrace();
+        }
+    }
+
+    public void sendMessage(String topic, String payload) {
+        MqttMessage message = new MqttMessage();
+        if (payload != null) {
+            message.setPayload(payload.getBytes());
+        }
+
+        sendMessage(topic, message);
+    }
+
+    private void sendMessage(String topic, MqttMessage message) {
+        if (client == null) {
+            return;
+        }
+
+        try {
+            if (!client.isConnected()) {
+                client.connect();
             }
 
             client.publish(topic, message, null, new IMqttActionListener() {
@@ -176,7 +227,11 @@ public class Client implements MqttCallback {
         }
     }
 
-    public void subscribeTopic(String topic) {
+    public boolean subscribeTopic(String topic) {
+        if (client == null) {
+            return false;
+        }
+
         try {
             client.subscribe(getClientId() + "/" + topic, 0, null, new IMqttActionListener() {
                 @Override
@@ -194,9 +249,15 @@ public class Client implements MqttCallback {
             Log.d("MQTT - Subscribe", "An exception has been thrown while trying to subscribe to topic \"" + topic + "\"!");
             e.printStackTrace();
         }
+
+        return true;
     }
 
     public void unsubscribeTopic(String topic) {
+        if (client == null) {
+            return;
+        }
+
         try {
             client.unsubscribe(topic);
             Log.d("MQTT - Unsubscribe", "Successfully unsubscribed from topic \"" + topic + "\".");
@@ -254,5 +315,11 @@ public class Client implements MqttCallback {
     @Override
     public void deliveryComplete(IMqttDeliveryToken token) {
 
+    }
+
+    protected void fireOnClientDestroyed() {
+        if (onClientDestroyedEventListener != null) {
+            onClientDestroyedEventListener.onDestroyed();
+        }
     }
 }

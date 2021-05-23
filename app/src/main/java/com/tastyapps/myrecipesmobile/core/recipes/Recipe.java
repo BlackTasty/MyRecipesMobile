@@ -14,6 +14,10 @@ public class Recipe extends BaseData {
     public RecipeImage RecipeImage;
     public int Servings;
 
+    public boolean isImageSet() {
+        return RecipeImage != null && RecipeImage.Image != null;
+    }
+
     public static Recipe fromJson(String json) {
         Recipe recipe = new Gson().fromJson(json, Recipe.class);
         return recipe;

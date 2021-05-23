@@ -3,9 +3,9 @@
     <color name="brown_200">#FFEABFB0</color>
     <color name="brown_500">#FFB78F80</color>
     <color name="brown_700">#FF866153</color>
-    <color name="purple_100">#FFF8BBD0</color>
-    <color name="purple_500">#FFC473FF</color>
-    <color name="purple_700">#FF8756FF</color>
+    <color name="light_green_800">#FF7CB342</color>
+    <color name="light_green_400">#FFAEE571</color>
+    <color name="light_green_600">#FF7CB342</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 

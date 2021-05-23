@@ -72,11 +72,25 @@
                 android:scaleType="centerCrop"
                 android:layout_height="@dimen/recipe_view_image_height"
                 android:src="@drawable/no_image"/>
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/recipe_view_image_height">
+
+                <Button
+                    android:id="@+id/btn_upload_image"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="Upload"
+                    app:icon="@drawable/ic_upload" />
+            </RelativeLayout>
             <View
                 android:id="@+id/anchor_recipe_image"
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/recipe_view_image_height"
-                android:minHeight="@dimen/recipe_view_image_height"/>
+                android:minHeight="@dimen/recipe_view_image_height">
+
+            </View>
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -188,5 +202,6 @@
         android:id="@+id/toolbar_recipe_view"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="@color/brown_700"/>
+        android:background="@color/brown_700"
+        android:title="Rezept"/>
 </FrameLayout>

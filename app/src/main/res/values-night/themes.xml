@@ -6,11 +6,15 @@
         <item name="colorPrimaryVariant">@color/brown_700</item>
         <item name="colorOnPrimary">@color/black</item>
         <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/purple_500</item>
-        <item name="colorSecondaryVariant">@color/purple_500</item>
+        <item name="colorSecondary">@color/light_green_400</item>
+        <item name="colorSecondaryVariant">@color/light_green_400</item>
         <item name="colorOnSecondary">@color/black</item>
         <!-- Status bar color. -->
         <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->
+    </style>
+
+    <style name="ButtonAccentStyle" parent="Widget.AppCompat.Button.Colored">
+        <item name="colorPrimary">@color/light_green_400</item>
     </style>
 </resources>

@@ -10,6 +10,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toolbar;
 
 import com.tastyapps.myrecipesmobile.adapters.RecipeAdapter;
 import com.tastyapps.myrecipesmobile.core.events.OnRecipeItemClickedEventListener;
@@ -32,6 +33,7 @@ public class RecipeListFragment extends Fragment {
 
     private RecyclerView listRecipes;
     private RecipeAdapter recipeAdapter;
+    private Toolbar toolbarRecipeView;
 
     private Client client;
 
@@ -77,6 +79,8 @@ public class RecipeListFragment extends Fragment {
         listRecipes = root.findViewById(R.id.list_recipes);
         listRecipes.setLayoutManager(new LinearLayoutManager(getActivity()));
 
+        toolbarRecipeView = root.findViewById(R.id.toolbar_recipe_view);
+
         client = Client.getInstance();
 
         client.setOnTopicReceivedEventListener(new OnTopicReceivedEventListener() {
@@ -96,6 +100,8 @@ public class RecipeListFragment extends Fragment {
                             recipeAdapter.addRecipe(recipe);
                         }
                         recipeAdapter.notifyDataSetChanged();
+                        //toolbarRecipeView.setTitle(recipe.Name);
+
                         client.subscribeTopic("recipes/img/" + recipe.Guid);
                         client.sendMessage("recipes/img", recipe.Guid);
                     }
