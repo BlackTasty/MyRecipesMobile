@@ -1,6 +1,7 @@
 package com.tastyapps.myrecipesmobile.core.mobile;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -47,6 +48,7 @@ public class Client implements MqttCallback {
     public boolean isUploadingImage;
     public String tempImageFilePath;
     public String recipeGuid;
+    public Bitmap selectedImage;
 
     private Client() {
         onClientConnectedEventListener = null;

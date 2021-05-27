@@ -4,6 +4,7 @@ import android.util.Log;
 
 import com.tastyapps.myrecipesmobile.core.events.OnRecipeItemClickedEventListener;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
+import com.tastyapps.myrecipesmobile.core.recipes.RecipeImage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +35,10 @@ public class RecipeStorage {
 
     public List<Recipe> getRecipes() {
         return recipes;
+    }
+
+    public Recipe getRecipeByGuid(String guid) {
+        return recipes.stream().filter(x -> x.Guid == guid).findFirst().orElse(null);
     }
 
     public void setRecipes(List<Recipe> recipes) {

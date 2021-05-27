@@ -16,6 +16,7 @@ import com.tastyapps.myrecipesmobile.core.events.OnClientConnectedEventListener;
 import com.tastyapps.myrecipesmobile.core.events.OnRecipeItemClickedEventListener;
 import com.tastyapps.myrecipesmobile.core.mobile.Client;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
+import com.tastyapps.myrecipesmobile.core.recipes.RecipeImage;
 import com.tastyapps.myrecipesmobile.core.util.ImageUtil;
 import com.tastyapps.myrecipesmobile.storage.RecipeStorage;
 
@@ -57,14 +58,28 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onConnected() {
                 Log.d("MainActivity", "Connection succeeded with MQTT server! (isUploadingImage: " + client.isUploadingImage + ")");
-                Log.d("RecipeViewFragment", "Recipe guid: " + client.recipeGuid);
-                Log.d("RecipeViewFragment", "Image file path: " + client.tempImageFilePath);
+                Log.d("MainActivity", "Recipe guid: " + client.recipeGuid);
+                Log.d("MainActivity", "Image file path: " + client.tempImageFilePath);
+                Log.d("MainActivity", "Image set: " + (client.selectedImage != null));
                 showRecipeView();
 
                 if (client.isUploadingImage) {
-                    Log.d("RecipeViewFragment", "Image size reduced! Sending to server... (Guid: " + client.recipeGuid + ")");
-                    Client.getInstance().sendImage("recipes/upload/" + client.recipeGuid,
-                            ImageUtil.fileToByteArray(new File(client.tempImageFilePath)));
+                    if (client.tempImageFilePath != null) {
+                        Log.d("MainActivity", "Image size reduced! Sending to server... (Guid: " + client.recipeGuid + ")");
+                        byte[] imageBytes = ImageUtil.fileToByteArray(new File(client.tempImageFilePath));
+
+                        Recipe recipe = RecipeStorage.getInstance().getRecipeByGuid(client.recipeGuid);
+                        recipe.RecipeImage = new RecipeImage(imageBytes);
+                        Client.getInstance().sendImage("recipes/upload/" + client.recipeGuid, imageBytes);
+                    } else if (client.selectedImage != null) {
+                        byte[] imageBytes = ImageUtil.bitmapToByteArray(Client.getInstance().selectedImage);
+
+                        Log.d("MainActivity", "Image bytes length: " + imageBytes.length);
+                        Recipe recipe = RecipeStorage.getInstance().getRecipeByGuid(client.recipeGuid);
+                        recipe.RecipeImage = new RecipeImage(imageBytes);
+                        Client.getInstance().sendImage("recipes/upload/" + client.recipeGuid, imageBytes);
+                    }
+
                     Client.getInstance().isUploadingImage = false;
                 }
             }

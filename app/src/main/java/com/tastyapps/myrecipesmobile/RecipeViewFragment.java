@@ -1,6 +1,7 @@
 package com.tastyapps.myrecipesmobile;
 
 import android.app.Activity;
+import android.content.ContentResolver;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -31,6 +32,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.Toolbar;
 
 import com.github.ksoichiro.android.observablescrollview.ObservableScrollView;
@@ -50,7 +52,10 @@ import com.tastyapps.myrecipesmobile.core.util.NumberUtils;
 import com.tastyapps.myrecipesmobile.storage.RecipeStorage;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -65,11 +70,12 @@ import java.util.Locale;
 public class RecipeViewFragment extends Fragment implements ObservableScrollViewCallbacks {
     private TextWatcher textWatcherInputServings;
     private TextWatcher textWatcherInputHoverServings;
+    private BottomSheetDialog bottomSheetDialog;
 
     private ActivityResultLauncher<Uri> imageFromCamera;
     private File tempImageFile;
     private Uri tempImageUri;
-    private ActivityResultLauncher<String[]> imageFromGallery;
+    private ActivityResultLauncher<String> imageFromGallery;
     private String[] tempSelectedImage;
 
     private static final String ARG_GUID = "guid";
@@ -157,32 +163,72 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
                     public void onActivityResult(Boolean result) {
                         if (result) {
                             if (tempImageUri != null) {
+                                bottomSheetDialog.hide();
                                 Client.getInstance().recipeGuid = recipe.Guid;
                                 Log.d("RecipeViewFragment", "Photo taken and saved! Preparing image for transfer...");
                                 activity.getContentResolver().notifyChange(tempImageUri, null);
                                 Bitmap reducedBitmap = ImageUtil.getBitmap(activity, Client.getInstance().tempImageFilePath);
+                                Client.getInstance().selectedImage = null;
+
                                 if (reducedBitmap != null) {
+                                    imageRecipe.setImageBitmap(reducedBitmap);
                                     Client.getInstance().isUploadingImage = true;
                                 }
+                            } else {
+                                Client.getInstance().isUploadingImage = false;
+                                Toast.makeText(activity, "Fehler bei Bildverarbeitung!", Toast.LENGTH_LONG).show();
                             }
                         }
                     }
                 });
 
-        imageFromGallery = registerForActivityResult(new ActivityResultContracts.OpenDocument(),
-                new ActivityResultCallback<Uri>() {
-                    @Override
-                    public void onActivityResult(Uri result) {
-                        Log.d("RecipeViewFragment", "tempImage array size: " + (tempSelectedImage != null ? tempSelectedImage.length : 0));
-                        if (tempSelectedImage != null && tempSelectedImage.length > 0) {
-                            Log.d("RecipeViewFragment", "tempImage array first item: " + tempSelectedImage[0]);
-                            if (result != null) {
-                                Client.getInstance().sendImage("recipes/upload/" + recipe.Guid,
-                                        ImageUtil.imageUriToByteArray(getContext(), result));
-                            }
-                        }
+        imageFromGallery = registerForActivityResult(new ActivityResultContracts.GetContent(), new ActivityResultCallback<Uri>() {
+            @Override
+            public void onActivityResult(Uri result) {
+
+                try {
+                    InputStream inputStream = activity.getContentResolver().openInputStream(result);
+
+                    Log.d("RecipeViewFragment", "Trying to parse inputstream into byte array");
+                    final Bitmap selectedImage = BitmapFactory.decodeStream(inputStream);
+
+                    Log.d("RecipeViewFragment", "Is bitmap set: " + (selectedImage != null));
+                    Client.getInstance().selectedImage = selectedImage;
+                    Client.getInstance().recipeGuid = recipe.Guid;
+                    Client.getInstance().tempImageFilePath = null;
+
+                    if (selectedImage != null) {
+                        bottomSheetDialog.hide();
+                        imageRecipe.setImageBitmap(selectedImage);
+                        Client.getInstance().isUploadingImage = true;
+                    } else {
+                        Client.getInstance().isUploadingImage = false;
+                        Toast.makeText(activity, "Fehler bei Bildverarbeitung!", Toast.LENGTH_LONG).show();
                     }
-                });
+                } catch (IOException e) {
+                    Log.d("RecipeViewFragment", "Error parsing inputstream to byte array!");
+                    e.printStackTrace();
+                }
+
+
+
+                /*Log.d("RecipeViewFragment", "Result uri: ");
+                Log.d("RecipeViewFragment", result.toString());
+                Log.d("RecipeViewFragment", "Result uri path: " + result.getPath());
+
+                String realPath = ImageUtil.getRealPathFromURI(activity, result);
+                Log.d("RecipeViewFragment", "Real path: " + realPath);
+                Log.d("RecipeViewFragment", "tempImage array size: " + (tempSelectedImage != null ? tempSelectedImage.length : 0));
+                if (tempSelectedImage != null && tempSelectedImage.length > 0) {
+                    Log.d("RecipeViewFragment", "tempImage array first item: " + tempSelectedImage[0]);
+                    if (result != null) {
+                        Client.getInstance().sendImage("recipes/upload/" + recipe.Guid,
+                                ImageUtil.imageUriToByteArray(getContext(), result));
+                    }
+                }*/
+            }
+        });
+        //imageFromGallery = registerForActivityResult(new ActivityResultContracts.GetContent());
     }
 
     @Override
@@ -340,7 +386,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
     }
 
     private void uploadFromGallery() {
-        imageFromGallery.launch(tempSelectedImage);
+        imageFromGallery.launch("image/*");
     }
 
     private File createImageFile() {
@@ -371,7 +417,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
             return;
         }
 
-        final BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this.getContext());
+        bottomSheetDialog = new BottomSheetDialog(this.getContext());
         bottomSheetDialog.setContentView(R.layout.layout_sheet_upload_image);
 
         AppCompatTextView btnUploadFromGallery = bottomSheetDialog.findViewById(R.id.btn_upload_from_gallery);
