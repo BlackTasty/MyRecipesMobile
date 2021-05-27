@@ -18,6 +18,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:configChanges="orientation|screenSize"
+        android:screenOrientation="portrait"
         android:theme="@style/Theme.MyRecipesMobile">
         <provider
             android:name="androidx.core.content.FileProvider"

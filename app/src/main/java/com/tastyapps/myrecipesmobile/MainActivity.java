@@ -5,26 +5,91 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 
+import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.Toast;
 import android.widget.Toolbar;
 
+import com.tastyapps.myrecipesmobile.core.events.OnClientConnectedEventListener;
 import com.tastyapps.myrecipesmobile.core.events.OnRecipeItemClickedEventListener;
 import com.tastyapps.myrecipesmobile.core.mobile.Client;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
+import com.tastyapps.myrecipesmobile.core.util.ImageUtil;
 import com.tastyapps.myrecipesmobile.storage.RecipeStorage;
+
+import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
     private boolean isRecipeViewOpen;
+    private Bundle savedInstanceState;
 
     private ActionBar actionBar;
     private boolean isBackPressed;
+
+    private Client client;
+    private boolean isReconnect = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        if (savedInstanceState == null) {
+        this.savedInstanceState = savedInstanceState;
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Log.d("MainActivity", "Activity started (isReconnect: " + isReconnect + ")");
+
+        actionBar = this.getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setBackgroundDrawable(ResourcesCompat.getDrawable(getResources(), R.color.brown_700, null));
+        }
+
+        Log.d("MainActivity", "Client is set: " + (client != null) + ")");
+        client = Client.getInstance();
+        client.connect(this.getApplicationContext(), isReconnect);
+        Activity current = this;
+
+        client.setOnClientConnectedEventListener(new OnClientConnectedEventListener() {
+            @Override
+            public void onConnected() {
+                Log.d("MainActivity", "Connection succeeded with MQTT server! (isUploadingImage: " + client.isUploadingImage + ")");
+                Log.d("RecipeViewFragment", "Recipe guid: " + client.recipeGuid);
+                Log.d("RecipeViewFragment", "Image file path: " + client.tempImageFilePath);
+                showRecipeView();
+
+                if (client.isUploadingImage) {
+                    Log.d("RecipeViewFragment", "Image size reduced! Sending to server... (Guid: " + client.recipeGuid + ")");
+                    Client.getInstance().sendImage("recipes/upload/" + client.recipeGuid,
+                            ImageUtil.fileToByteArray(new File(client.tempImageFilePath)));
+                    Client.getInstance().isUploadingImage = false;
+                }
+            }
+
+            @Override
+            public void onFail(Throwable ex) {
+                Toast.makeText(current, "Verbindung fehlgeschlagen!", Toast.LENGTH_LONG).show();
+                Log.d("MainActivity", "Connection failed with MQTT server!");
+                ex.printStackTrace();
+                current.finish();
+            }
+        });
+        /*if (!isBackPressed) {
+            Client.getInstance().reconnect(this.getApplicationContext());
+        }*/
+    }
+
+    @Override
+    protected void onRestart() {
+        isReconnect = true;
+        super.onRestart();
+    }
+
+    private void showRecipeView() {
+        if (savedInstanceState == null && !isReconnect) {
 
             getSupportFragmentManager().beginTransaction()
                     .setReorderingAllowed(true)
@@ -48,21 +113,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onStart() {
-        super.onStart();
-
-        actionBar = this.getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.setBackgroundDrawable(ResourcesCompat.getDrawable(getResources(), R.color.brown_700, null));
-        }
-
-
-        /*if (!isBackPressed) {
-            Client.getInstance().reconnect(this.getApplicationContext());
-        }*/
-    }
-
-    @Override
     public void onBackPressed() {
         if (!isRecipeViewOpen) {
             isBackPressed = true;
@@ -83,6 +133,7 @@ public class MainActivity extends AppCompatActivity {
         if (!isBackPressed) {
 
         }
+        Log.d("MainActivity", "Activity stopped");
         Client.getInstance().disconnect();
         super.onStop();
     }

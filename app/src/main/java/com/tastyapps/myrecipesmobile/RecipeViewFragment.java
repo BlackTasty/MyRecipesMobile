@@ -1,6 +1,8 @@
 package com.tastyapps.myrecipesmobile;
 
+import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
@@ -63,10 +65,10 @@ import java.util.Locale;
 public class RecipeViewFragment extends Fragment implements ObservableScrollViewCallbacks {
     private TextWatcher textWatcherInputServings;
     private TextWatcher textWatcherInputHoverServings;
-    private ImageUtil imageUtil;
 
     private ActivityResultLauncher<Uri> imageFromCamera;
     private File tempImageFile;
+    private Uri tempImageUri;
     private ActivityResultLauncher<String[]> imageFromGallery;
     private String[] tempSelectedImage;
 
@@ -147,13 +149,22 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
     }
 
     private void registerLaunchers() {
+        Activity activity = this.getActivity();
+
         imageFromCamera = registerForActivityResult(new ActivityResultContracts.TakePicture(),
                 new ActivityResultCallback<Boolean>() {
                     @Override
                     public void onActivityResult(Boolean result) {
                         if (result) {
-                            Client.getInstance().sendImage("recipes/upload/" + recipe.Guid,
-                                    ImageUtil.fileToByteArray(tempImageFile));
+                            if (tempImageUri != null) {
+                                Client.getInstance().recipeGuid = recipe.Guid;
+                                Log.d("RecipeViewFragment", "Photo taken and saved! Preparing image for transfer...");
+                                activity.getContentResolver().notifyChange(tempImageUri, null);
+                                Bitmap reducedBitmap = ImageUtil.getBitmap(activity, Client.getInstance().tempImageFilePath);
+                                if (reducedBitmap != null) {
+                                    Client.getInstance().isUploadingImage = true;
+                                }
+                            }
                         }
                     }
                 });
@@ -283,11 +294,6 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         if (recipeIngredientAdapter == null) {
             recipeIngredientAdapter = new RecipeIngredientAdapter(recipe.Ingredients);
 
-            Log.d("TEST", String.valueOf(EnumUtils.castIntToMeasurementType(3)));
-            Log.d("TEST", String.valueOf(EnumUtils.castIntToIngredientCategory(40)));
-            Log.d("TEST", String.valueOf(EnumUtils.castIntToSeasonMonth(5)));
-            Log.d("TEST", String.valueOf(EnumUtils.castIntToWareOriginType(2)));
-
             RecipeIngredient recipeIngredient = recipe.Ingredients.get(recipe.Ingredients.size() - 1);
             Log.d("RecipeViewFragment", "RecipeIngredient set: " + (recipeIngredient != null));
             Log.d("RecipeViewFragment", "Measurement: " + String.valueOf(recipeIngredient.MeasurementTypeReal) + "(RAW: "+ recipeIngredient.MeasurementType + ")");
@@ -327,7 +333,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         Log.d("RecipeViewFragment", "Created temp file in path: " + tempImageFile.getAbsolutePath());
         Log.d("RecipeViewFragment", "File exists: " + tempImageFile.exists());
 
-        Uri tempImageUri = FileProvider.getUriForFile(this.getContext(),
+        tempImageUri = FileProvider.getUriForFile(this.getContext(),
                 getActivity().getApplicationContext().getPackageName() + ".provider", tempImageFile);
 
         imageFromCamera.launch(tempImageUri);
@@ -349,6 +355,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
                     ".jpg",         /* suffix */
                     storageDir      /* directory */
             );
+            Client.getInstance().tempImageFilePath = image.getPath();
         } catch (IOException e) {
             Log.d("RecipeViewFragment", "Error creating image!");
             e.printStackTrace();
@@ -363,26 +370,6 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         if (this.getContext() == null) {
             return;
         }
-
-        imageUtil = ImageUtil.getInstance(this);
-        /*imageUtil.setImageActionListener(new ImageUtil.ImageActionListener() {
-            @Override
-            public void onImageSelectedFromGallery(Uri uri, File imageFile) {
-                Log.d("RecipeViewFragment", "Uploading image from gallery to server");
-                Client.getInstance().sendImage("recipes/upload/" + recipe.Guid, ImageUtil.fileToByteArray(imageFile));
-            }
-
-            @Override
-            public void onImageTakenFromCamera(Uri uri, File imageFile) {
-                Log.d("RecipeViewFragment", "Uploading image from camera to server");
-                Client.getInstance().sendImage("recipes/upload/" + recipe.Guid, ImageUtil.fileToByteArray(imageFile));
-            }
-
-            @Override
-            public void onImageCropped(Uri uri, File imageFile) {
-
-            }
-        });*/
 
         final BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this.getContext());
         bottomSheetDialog.setContentView(R.layout.layout_sheet_upload_image);

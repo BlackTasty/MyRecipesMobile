@@ -44,6 +44,10 @@ public class Client implements MqttCallback {
     private MqttAndroidClient client;
     private boolean connected;
 
+    public boolean isUploadingImage;
+    public String tempImageFilePath;
+    public String recipeGuid;
+
     private Client() {
         onClientConnectedEventListener = null;
         onClientDisconnectedEventListener = null;
@@ -78,24 +82,27 @@ public class Client implements MqttCallback {
         return client != null ? client.getClientId() : "";
     }
 
-    public void connect(Context appContext, String address, String username, String password) {
-        if (connected) {
-            return;
-        }
+    public void setConnectionData(String address, String username, String password) {
 
         addressCurrent = address;
         usernameCurrent = username;
         passwordCurrent = password;
+    }
 
-        String clientId = MqttClient.generateClientId();
-        client = new MqttAndroidClient(appContext, "tcp://" + address + ":1883", clientId);
-        MqttConnectOptions mqttConnectOptions = new MqttConnectOptions();
-        if (!TextUtils.isEmpty(username)) {
-            mqttConnectOptions.setUserName(username);
+    public void connect(Context appContext, boolean isReconnect) {
+        if (connected && !isReconnect) {
+            return;
         }
 
-        if (!TextUtils.isEmpty(password)) {
-            mqttConnectOptions.setPassword(password.toCharArray());
+        String clientId = MqttClient.generateClientId();
+        client = new MqttAndroidClient(appContext, "tcp://" + addressCurrent + ":1883", clientId);
+        MqttConnectOptions mqttConnectOptions = new MqttConnectOptions();
+        if (!TextUtils.isEmpty(addressCurrent)) {
+            mqttConnectOptions.setUserName(addressCurrent);
+        }
+
+        if (!TextUtils.isEmpty(addressCurrent)) {
+            mqttConnectOptions.setPassword(addressCurrent.toCharArray());
         }
         mqttConnectOptions.setConnectionTimeout(5);
 
@@ -134,9 +141,9 @@ public class Client implements MqttCallback {
         }
 
         try {
-            addressCurrent = null;
-            usernameCurrent = null;
-            passwordCurrent = null;
+            //addressCurrent = null;
+            //usernameCurrent = null;
+            //passwordCurrent = null;
 
             if (client == null) {
                 fireOnClientDestroyed();
@@ -170,23 +177,55 @@ public class Client implements MqttCallback {
         }
 
         try {
+            boolean isConnecting = false;
+
             if (!client.isConnected()) {
+                isConnecting = true;
                 client.connect();
             }
 
+            if (isConnecting) {
+                Log.d("MQTT - SendImage", "Publishing image, but waiting for connection...");
+                OnClientConnectedEventListener originalHandler = Client.getInstance().onClientConnectedEventListener;
+                setOnClientConnectedEventListener(new OnClientConnectedEventListener() {
+                    @Override
+                    public void onConnected() {
+                        Log.d("MQTT - SendImage", "Successfully published image to topic \"" + topic + "\"!");
+                        publishImage(topic, imageBytes);
+                        setOnClientConnectedEventListener(originalHandler);
+                    }
+
+                    @Override
+                    public void onFail(Throwable ex) {
+                        Log.d("MQTT - SendImage", "Connection to client failed while trying to publish image to topic \"" + topic + "\"!");
+                        setOnClientConnectedEventListener(originalHandler);
+                    }
+                });
+            } else {
+                Log.d("MQTT - SendImage", "Publishing image...");
+                publishImage(topic, imageBytes);
+            }
+        } catch (MqttException e) {
+            Log.d("MQTT - SendImage", "An exception has been thrown while trying to publish image to topic \"" + topic + "\"!");
+            e.printStackTrace();
+        }
+    }
+
+    private void publishImage(String topic, byte[] imageBytes) {
+        try {
             client.publish(topic, imageBytes, 0, false, null, new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
-                    Log.d("MQTT - Send", "Successfully published image to topic \"" + topic + "\"!");
+                    Log.d("MQTT - SendImage", "Successfully published image to topic \"" + topic + "\"!");
                 }
 
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                    Log.d("MQTT - Send", "Error publishing image to topic \"" + topic + "\"!");
+                    Log.d("MQTT - SendImage", "Error publishing image to topic \"" + topic + "\"!");
                 }
             });
         } catch (MqttException e) {
-            Log.d("MQTT - Send", "An exception has been thrown while trying to publish image to topic \"" + topic + "\"!");
+            Log.d("MQTT - SendImage", "An exception has been thrown while trying to publish image to topic \"" + topic + "\"!");
             e.printStackTrace();
         }
     }
@@ -195,6 +234,7 @@ public class Client implements MqttCallback {
         MqttMessage message = new MqttMessage();
         if (payload != null) {
             message.setPayload(payload.getBytes());
+            Log.d("MQTT - SendMessage", "Payload: " + payload);
         }
 
         sendMessage(topic, message);
@@ -213,16 +253,16 @@ public class Client implements MqttCallback {
             client.publish(topic, message, null, new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
-                    Log.d("MQTT - Send", "Successfully published message to topic \"" + topic + "\"!");
+                    Log.d("MQTT - SendMessage", "Successfully published message to topic \"" + topic + "\"!");
                 }
 
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                    Log.d("MQTT - Send", "Error publishing message to topic \"" + topic + "\"!");
+                    Log.d("MQTT - SendMessage", "Error publishing message to topic \"" + topic + "\"!");
                 }
             });
         } catch (MqttException e) {
-            Log.d("MQTT - Send", "An exception has been thrown while trying to publish message to topic \"" + topic + "\"!");
+            Log.d("MQTT - SendMessage", "An exception has been thrown while trying to publish message to topic \"" + topic + "\"!");
             e.printStackTrace();
         }
     }

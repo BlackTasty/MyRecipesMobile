@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -23,56 +25,6 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class ImageUtil {
-    private static ImageUtil instance;
-
-    public static final int REQUEST_PICTURE_FROM_GALLERY = 23;
-    public static final int REQUEST_PICTURE_FROM_CAMERA = 24;
-    public static final int REQUEST_CROP_PICTURE = 25;
-    private static final String TAG = "ImageInputHelper";
-
-    private File tempFileFromSource = null;
-    private Uri tempUriFromSource = null;
-
-    private File tempFileFromCrop = null;
-    private Uri tempUriFromCrop = null;
-
-    /**
-     * Activity object that will be used while calling startActivityForResult(). Activity then will
-     * receive the callbacks to its own onActivityResult() and is responsible of calling the
-     * onActivityResult() of the ImageInputHelper for handling result and being notified.
-     */
-    private Activity mContext;
-
-    /**
-     * Fragment object that will be used while calling startActivityForResult(). Fragment then will
-     * receive the callbacks to its own onActivityResult() and is responsible of calling the
-     * onActivityResult() of the ImageInputHelper for handling result and being notified.
-     */
-    private Fragment fragment;
-
-    /**
-     * Listener instance for callbacks on user events. It must be set to be able to use
-     * the ImageInputHelper object.
-     */
-    private ImageActionListener imageActionListener;
-
-    public static ImageUtil getInstance(Fragment fragment) {
-        if (instance == null) {
-            instance = new ImageUtil(fragment);
-        }
-
-        return instance;
-    }
-
-    private ImageUtil(Fragment fragment) {
-        this.fragment = fragment;
-        this.mContext = fragment.getActivity();
-    }
-
-    public void setImageActionListener(ImageActionListener imageActionListener) {
-        this.imageActionListener = imageActionListener;
-    }
-
     public static byte[] fileToByteArray(File file) {
         byte bytes[] = new byte[(int) file.length()];
         try {
@@ -112,92 +64,79 @@ public class ImageUtil {
         return byteBuffer.toByteArray();
     }
 
-    /**
-     * Starts an intent for selecting image from gallery. The result is returned to the
-     * onImageSelectedFromGallery() method of the ImageSelectionListener interface.
-     */
-    public void selectImageFromGallery() {
-        checkListener();
+    public static byte[] bitmapToByteArray(Bitmap bitmap) {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+        byte[] byteArray = stream.toByteArray();
+        bitmap.recycle();
 
-        if (tempFileFromSource == null) {
-            try {
-                tempFileFromSource = File.createTempFile("choose", "png", mContext.getExternalCacheDir());
-                tempUriFromSource = Uri.fromFile(tempFileFromSource);
-            } catch (IOException e) {
-                e.printStackTrace();
+        return byteArray;
+    }
+
+    public static Bitmap getBitmap(Activity activity, String path) {
+
+        Uri uri = Uri.fromFile(new File(path));
+        InputStream in = null;
+        try {
+            final int IMAGE_MAX_SIZE = 1200000; // 1.2MP
+            in = activity.getContentResolver().openInputStream(uri);
+
+            // Decode image size
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            BitmapFactory.decodeStream(in, null, o);
+            in.close();
+
+
+            int scale = 1;
+            while ((o.outWidth * o.outHeight) * (1 / Math.pow(scale, 2)) >
+                    IMAGE_MAX_SIZE) {
+                scale++;
             }
-        }
+            Log.d("ImageUtil", "scale = " + scale + ", orig-width: " + o.outWidth + ", orig-height: " + o.outHeight);
 
-        ActivityResultLauncher<String[]> openImage = fragment.registerForActivityResult(new ActivityResultContracts.OpenDocument(),
-                new ActivityResultCallback<Uri>() {
-                    @Override
-                    public void onActivityResult(Uri uri) {
-                        // Handle the returned Uri
-                    }
-                });
+            Bitmap b = null;
+            in = activity.getContentResolver().openInputStream(uri);
+            if (scale > 1) {
+                scale--;
+                // scale to max possible inSampleSize that still yields an image
+                // larger than target
+                o = new BitmapFactory.Options();
+                o.inSampleSize = scale;
+                b = BitmapFactory.decodeStream(in, null, o);
 
-        Intent intent = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        intent.putExtra(MediaStore.EXTRA_OUTPUT, tempUriFromSource);
-        /*if (fragment == null) {
-            mContext.startActivityForResult(intent, REQUEST_PICTURE_FROM_GALLERY);
-        } else {
-            fragment.startActivityForResult(intent, REQUEST_PICTURE_FROM_GALLERY);
-        }*/
-    }
+                // resize to desired dimensions
 
-    /**
-     * Starts an intent for cropping an image that is saved in the uri. The result is
-     * returned to the onImageCropped() method of the ImageSelectionListener interface.
-     *
-     * @param uri     uri that contains the data of the image to crop
-     * @param outputX width of the result image
-     * @param outputY height of the result image
-     * @param aspectX horizontal ratio value while cutting the image
-     * @param aspectY vertical ratio value of while cutting the image
-     */
-    public void requestCropImage(Uri uri, int outputX, int outputY, int aspectX, int aspectY) {
-        checkListener();
 
-        if (tempFileFromCrop == null) {
-            try {
-                tempFileFromCrop = File.createTempFile("crop", "png", mContext.getExternalCacheDir());
-                tempUriFromCrop = Uri.fromFile(tempFileFromCrop);
-            } catch (IOException e) {
-                e.printStackTrace();
+                /**
+                 * Starts an intent for selecting image from gallery. The result is returned to the
+                 * onImageSelectedFromGallery() method of the ImageSelectionListener interface.
+                 */
+                int height = b.getHeight();
+                int width = b.getWidth();
+                Log.d("ImageUtil", "1st scale operation dimenions - width: " + width + ", height: " + height);
+
+                double y = Math.sqrt(IMAGE_MAX_SIZE
+                        / (((double) width) / height));
+                double x = (y / height) * width;
+
+                Bitmap scaledBitmap = Bitmap.createScaledBitmap(b, (int) x,
+                        (int) y, true);
+                b.recycle();
+                b = scaledBitmap;
+
+                System.gc();
+            } else {
+                b = BitmapFactory.decodeStream(in);
             }
+            in.close();
+
+            Log.d("ImageUtil", "bitmap size - width: " + b.getWidth() + ", height: " +
+                    b.getHeight());
+            return b;
+        } catch (IOException e) {
+            Log.e("ImageUtil", e.getMessage(), e);
+            return null;
         }
-
-        // open crop intent when user selects image
-        final Intent intent = new Intent("com.android.camera.action.CROP");
-        intent.setDataAndType(uri, "image/*");
-        intent.putExtra("output", tempUriFromCrop);
-        intent.putExtra("outputX", outputX);
-        intent.putExtra("outputY", outputY);
-        intent.putExtra("aspectX", aspectX);
-        intent.putExtra("aspectY", aspectY);
-        intent.putExtra("scale", true);
-        intent.putExtra("noFaceDetection", true);
-        if (fragment == null) {
-            mContext.startActivityForResult(intent, REQUEST_CROP_PICTURE);
-        } else {
-            fragment.startActivityForResult(intent, REQUEST_CROP_PICTURE);
-        }
-    }
-
-    private void checkListener() {
-        if (imageActionListener == null) {
-            throw new RuntimeException("ImageSelectionListener must be set before calling openGalleryIntent(), openCameraIntent() or requestCropImage().");
-        }
-    }
-
-    /**
-     * Listener interface for receiving callbacks from the ImageInputHelper.
-     */
-    public interface ImageActionListener {
-        void onImageSelectedFromGallery(Uri uri, File imageFile);
-
-        void onImageTakenFromCamera(Uri uri, File imageFile);
-
-        void onImageCropped(Uri uri, File imageFile);
     }
 }

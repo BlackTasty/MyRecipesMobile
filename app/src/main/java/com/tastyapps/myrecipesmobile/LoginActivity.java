@@ -27,8 +27,6 @@ import com.tastyapps.myrecipesmobile.databinding.ActivityLoginBinding;
 public class LoginActivity extends AppCompatActivity {
     private ActivityLoginBinding binding;
 
-    private Client client;
-
     private Button btnConnect;
     private EditText txtAddress;
     private EditText txtUsername;
@@ -74,42 +72,28 @@ public class LoginActivity extends AppCompatActivity {
                 btnConnect.setEnabled(txtAddress.getText().toString().length() > 0);
             }
         });
-
-        Activity current = this;
-        //Return Singleton client and hook up connect event
-        client = Client.getInstance();
-        client.setOnClientConnectedEventListener(new OnClientConnectedEventListener() {
-            @Override
-            public void onConnected() {
-                setIsConnecting(false);
-                Log.d("LoginActivity", "Connection succeeded with MQTT server!");
-
-                //On success, swap activity to MainActivity
-                Intent mainIntent = new Intent(current, MainActivity.class);
-                startActivity(mainIntent);
-            }
-
-            @Override
-            public void onFail(Throwable ex) {
-                Toast.makeText(current, "Verbindung fehlgeschlagen!", Toast.LENGTH_LONG).show();
-                Log.d("LoginActivity", "Connection failed with MQTT server!");
-                ex.printStackTrace();
-                setIsConnecting(false);
-            }
-        });
     }
 
     public void onConnectClick(View view) {
         //Disable connect button while connecting
         setIsConnecting(true);
 
-        Context appContext = this.getApplicationContext();
+        //Context appContext = this.getApplicationContext();
 
         Log.d("LoginActivity", "IP-address (Binding): " + binding.txtAddress.getText().toString());
 
-        //Call connect(...) method in client
-        client.connect(appContext, binding.txtAddress.getText().toString(), binding.txtUsername.getText().toString(),
+        //Set connection data
+        Client.getInstance().setConnectionData(binding.txtAddress.getText().toString(), binding.txtUsername.getText().toString(),
                 binding.txtPassword.getText().toString());
+
+        //Forward to MainActivity, which handles connecting
+        Intent mainIntent = new Intent(this, MainActivity.class);
+        startActivity(mainIntent);
+        setIsConnecting(false);
+
+        /*//Call connect(...) method in client
+        client.connect(appContext, binding.txtAddress.getText().toString(), binding.txtUsername.getText().toString(),
+                binding.txtPassword.getText().toString());*/
     }
 
     private void setIsConnecting(boolean isConnecting) {
