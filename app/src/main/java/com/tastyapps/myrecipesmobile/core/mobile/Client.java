@@ -49,6 +49,7 @@ public class Client implements MqttCallback {
     public String tempImageFilePath;
     public String recipeGuid;
     public Bitmap selectedImage;
+    public byte[] imageBytes;
 
     private Client() {
         onClientConnectedEventListener = null;
@@ -187,6 +188,7 @@ public class Client implements MqttCallback {
             }
 
             if (isConnecting) {
+                //this.imageBytes = imageBytes;
                 Log.d("MQTT - SendImage", "Publishing image, but waiting for connection...");
                 OnClientConnectedEventListener originalHandler = Client.getInstance().onClientConnectedEventListener;
                 setOnClientConnectedEventListener(new OnClientConnectedEventListener() {

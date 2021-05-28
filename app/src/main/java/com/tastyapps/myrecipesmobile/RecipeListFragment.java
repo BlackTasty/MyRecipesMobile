@@ -1,5 +1,6 @@
 package com.tastyapps.myrecipesmobile;
 
+import android.content.Context;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
@@ -19,6 +20,7 @@ import com.tastyapps.myrecipesmobile.core.mobile.Client;
 import com.tastyapps.myrecipesmobile.core.recipes.Category;
 import com.tastyapps.myrecipesmobile.core.recipes.Ingredient;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
+import com.tastyapps.myrecipesmobile.core.recipes.RecipeImage;
 import com.tastyapps.myrecipesmobile.storage.RecipeStorage;
 
 import java.util.ArrayList;
@@ -82,6 +84,7 @@ public class RecipeListFragment extends Fragment {
         toolbarRecipeView = root.findViewById(R.id.toolbar_recipe_view);
 
         client = Client.getInstance();
+        Context context = this.getContext();
 
         client.setOnTopicReceivedEventListener(new OnTopicReceivedEventListener() {
             @Override
@@ -93,6 +96,9 @@ public class RecipeListFragment extends Fragment {
                     public void run() {
                         if (recipeAdapter == null) {
                             ArrayList<Recipe> recipes = new ArrayList<>();
+                            if (recipe.RecipeImage == null || recipe.RecipeImage.Image == null) {
+                                recipe.RecipeImage = new RecipeImage(context);
+                            }
                             recipes.add(recipe);
                             recipeAdapter = new RecipeAdapter(recipes);
                             listRecipes.setAdapter(recipeAdapter);

@@ -1,7 +1,12 @@
 package com.tastyapps.myrecipesmobile.core.recipes;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+
+import androidx.appcompat.content.res.AppCompatResources;
+
+import com.tastyapps.myrecipesmobile.R;
 
 public class RecipeImage {
     //public String ImageBytes;
@@ -9,6 +14,10 @@ public class RecipeImage {
 
     public RecipeImage(byte[] imageBytes) {
         Image = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+    }
+
+    public RecipeImage(Context context) {
+        Image = BitmapFactory.decodeResource(context.getResources(), R.drawable.no_image);
     }
 
     /*public static RecipeImage fromJson(String json) {

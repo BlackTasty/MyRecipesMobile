@@ -5,14 +5,17 @@ import android.content.ContentResolver;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable;
 import androidx.appcompat.widget.AppCompatTextView;
 import androidx.cardview.widget.CardView;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
@@ -38,6 +41,7 @@ import android.widget.Toolbar;
 import com.github.ksoichiro.android.observablescrollview.ObservableScrollView;
 import com.github.ksoichiro.android.observablescrollview.ObservableScrollViewCallbacks;
 import com.github.ksoichiro.android.observablescrollview.ScrollState;
+import com.github.ksoichiro.android.observablescrollview.ScrollUtils;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.tastyapps.myrecipesmobile.adapters.PreparationStepAdapter;
 import com.tastyapps.myrecipesmobile.adapters.RecipeIngredientAdapter;
@@ -45,6 +49,7 @@ import com.tastyapps.myrecipesmobile.core.ScrollLockedLinearLayoutManager;
 import com.tastyapps.myrecipesmobile.core.mobile.Client;
 import com.tastyapps.myrecipesmobile.core.recipes.Ingredient;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
+import com.tastyapps.myrecipesmobile.core.recipes.RecipeImage;
 import com.tastyapps.myrecipesmobile.core.recipes.RecipeIngredient;
 import com.tastyapps.myrecipesmobile.core.util.EnumUtils;
 import com.tastyapps.myrecipesmobile.core.util.ImageUtil;
@@ -78,6 +83,10 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
     private ActivityResultLauncher<String> imageFromGallery;
     private String[] tempSelectedImage;
 
+    private ObservableScrollView scroll;
+    private int parallaxImageHeight;
+    private int toolbarBaseColor;
+
     private static final String ARG_GUID = "guid";
 
     private WindowManager windowManager;
@@ -97,7 +106,6 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
     private RecyclerView listIngredients;
     private RecyclerView listHoverIngredients;
     private RecyclerView listSteps;
-    private ObservableScrollView scroll;
     private Button toggleIngredientList;
     private TextView txtPreparationStepsTitle;
     private Button btnIncreaseServings;
@@ -105,8 +113,8 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
     private Button btnUploadImage;
 
     private CardView containerIngredients;
-    private CardView containerHoverIngredients;
-    private LinearLayout containerSubIngredients;
+    private LinearLayout containerHoverIngredients;
+    private CardView containerSubIngredients;
 
     private RecipeIngredientAdapter recipeIngredientAdapter;
     private PreparationStepAdapter preparationStepAdapter;
@@ -114,6 +122,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
     private Toolbar toolbar;
 
     private boolean servingsValueSet;
+    private boolean isStarting;
 
     public RecipeViewFragment() {
         // Required empty public constructor
@@ -132,6 +141,29 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         args.putString(ARG_GUID, guid);
         fragment.setArguments(args);
         return fragment;
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        byte[] imageBytes = Client.getInstance().imageBytes;
+        if (imageBytes != null && imageBytes.length > 0) {
+            recipe.RecipeImage = new RecipeImage(imageBytes);
+            imageRecipe.setImageBitmap(recipe.RecipeImage.Image);
+        }
+
+        isStarting = true;
+        onScrollChanged(scroll.getCurrentScrollY() + 60, false, false);
+        isStarting = false;
+    }
+
+    @Override
+    public void onStop() {
+        Client.getInstance().imageBytes = ImageUtil.bitmapToByteArray(((BitmapDrawable)imageRecipe.getDrawable()).getBitmap());
+        imageRecipe.setImageBitmap(null);
+
+        super.onStop();
     }
 
     public void releaseEventListeners() {
@@ -188,6 +220,9 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
 
                 try {
                     InputStream inputStream = activity.getContentResolver().openInputStream(result);
+                    if (inputStream == null) {
+                        return;
+                    }
 
                     Log.d("RecipeViewFragment", "Trying to parse inputstream into byte array");
                     final Bitmap selectedImage = BitmapFactory.decodeStream(inputStream);
@@ -277,10 +312,16 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         };
         inputHoverServings.addTextChangedListener(textWatcherInputHoverServings);
         imageRecipe = view.findViewById(R.id.recipe_image);
+
         listIngredients = view.findViewById(R.id.list_ingredients);
         listHoverIngredients = view.findViewById(R.id.list_hover_ingredients);
         listSteps = view.findViewById(R.id.list_steps);
+
         scroll = view.findViewById(R.id.scroll_recipe);
+        scroll.setScrollViewCallbacks(this);
+        parallaxImageHeight = getResources().getDimensionPixelSize(R.dimen.recipe_view_image_height);
+        toolbarBaseColor = ContextCompat.getColor(this.getActivity().getApplicationContext(), R.color.brown_700);
+
         toggleIngredientList = view.findViewById(R.id.toggle_list_ingredient);
         toggleIngredientList.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -363,8 +404,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         windowManager = this.getActivity().getWindowManager();
 
         toolbar = view.findViewById(R.id.toolbar_recipe_view);
-
-        scroll.setScrollViewCallbacks(this);
+        toolbar.setTitle(recipe.Name);
 
         isInitialized = true;
         return view;
@@ -481,8 +521,8 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         ingredientListVisible = isVisible;
         containerSubIngredients.setVisibility(isVisible ? View.VISIBLE : View.GONE);
         toggleIngredientList.setCompoundDrawablesWithIntrinsicBounds(null,
-                ResourcesCompat.getDrawable(getResources(), isVisible ? R.drawable.ic_chevron_up : R.drawable.ic_chevron_down, null),
                 null,
+                ResourcesCompat.getDrawable(getResources(), isVisible ? R.drawable.ic_chevron_up : R.drawable.ic_chevron_down, null),
                 null);
     }
 
@@ -510,6 +550,13 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
             return;
         }
 
+        // Set parallax effect
+        imageRecipe.setTranslationY((float)scrollY / 2);
+
+        float alpha = Math.min(1, (float) scrollY / parallaxImageHeight);
+        toolbar.setBackgroundColor(ScrollUtils.getColorWithAlpha(alpha, toolbarBaseColor));
+
+        // Code to hide/show ingredient expander button
         int[] location = new int[2];
         txtPreparationStepsTitle.getLocationInWindow(location);
         int pxY = location[1];
@@ -518,8 +565,11 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         windowManager.getDefaultDisplay().getMetrics(metrics);
         float logicalDensity = metrics.density;
 
-        int offset = 145;
+        int offset = 140;
         int dpY = (int) Math.ceil(pxY / logicalDensity) - offset;
+        if (isStarting) {
+            dpY += 140;
+        }
 
         Log.d("RecipeViewFragment", "Target Y position : " + pxY + "px; " + dpY + "dp");
 
@@ -544,5 +594,12 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
     @Override
     public void onUpOrCancelMotionEvent(ScrollState scrollState) {
 
+    }
+
+    @Override
+    public void onViewStateRestored(@Nullable @org.jetbrains.annotations.Nullable Bundle savedInstanceState) {
+        super.onViewStateRestored(savedInstanceState);
+        Log.d("RecipeViewFragment", "onViewStateRestored");
+        onScrollChanged(scroll.getCurrentScrollY(), false, false);
     }
 }
