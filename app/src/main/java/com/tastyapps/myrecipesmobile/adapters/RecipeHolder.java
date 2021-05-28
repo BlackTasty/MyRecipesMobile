@@ -14,6 +14,7 @@ import com.google.android.flexbox.FlexboxLayoutManager;
 import com.google.android.flexbox.JustifyContent;
 import com.tastyapps.myrecipesmobile.R;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
+import com.tastyapps.myrecipesmobile.core.recipes.RecipeImage;
 import com.tastyapps.myrecipesmobile.storage.RecipeStorage;
 
 public class RecipeHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
@@ -47,8 +48,8 @@ public class RecipeHolder extends RecyclerView.ViewHolder implements View.OnClic
         this.recipe = recipe;
         mName.setText(recipe.Name);
 
-        if (recipe.RecipeImage != null && recipe.RecipeImage.Image != null) {
-            mRecipeImage.setImageBitmap(recipe.RecipeImage.Image);
+        if (recipe.RecipeImage != null && recipe.RecipeImage.getImage() != null) {
+            mRecipeImage.setImageBitmap(recipe.RecipeImage.getImage());
         }
 
         if (categoryAdapter == null) {

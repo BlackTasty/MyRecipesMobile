@@ -14,12 +14,15 @@ public class Recipe extends BaseData {
     public RecipeImage RecipeImage;
     public int Servings;
 
+    public String Checksum;
+
     public boolean isImageSet() {
-        return RecipeImage != null && RecipeImage.Image != null;
+        return RecipeImage != null && RecipeImage.getImage() != null;
     }
 
     public static Recipe fromJson(String json) {
         Recipe recipe = new Gson().fromJson(json, Recipe.class);
+        //recipe.checksum = HashUtils.hashSHA512(json);
         return recipe;
     }
 

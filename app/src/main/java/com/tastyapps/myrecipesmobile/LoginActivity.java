@@ -6,8 +6,6 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.databinding.DataBindingUtil;
 
-import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
@@ -16,12 +14,9 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ProgressBar;
-import android.widget.Toast;
 
 import com.google.android.material.progressindicator.CircularProgressIndicator;
-import com.tastyapps.myrecipesmobile.core.events.OnClientConnectedEventListener;
-import com.tastyapps.myrecipesmobile.core.mobile.Client;
+import com.tastyapps.myrecipesmobile.core.mobile.MqttClient;
 import com.tastyapps.myrecipesmobile.databinding.ActivityLoginBinding;
 
 public class LoginActivity extends AppCompatActivity {
@@ -83,7 +78,7 @@ public class LoginActivity extends AppCompatActivity {
         Log.d("LoginActivity", "IP-address (Binding): " + binding.txtAddress.getText().toString());
 
         //Set connection data
-        Client.getInstance().setConnectionData(binding.txtAddress.getText().toString(), binding.txtUsername.getText().toString(),
+        MqttClient.getInstance().setConnectionData(binding.txtAddress.getText().toString(), binding.txtUsername.getText().toString(),
                 binding.txtPassword.getText().toString());
 
         //Forward to MainActivity, which handles connecting

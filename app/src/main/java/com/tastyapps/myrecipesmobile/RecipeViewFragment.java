@@ -1,11 +1,9 @@
 package com.tastyapps.myrecipesmobile;
 
 import android.app.Activity;
-import android.content.ContentResolver;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 
@@ -46,21 +44,18 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.tastyapps.myrecipesmobile.adapters.PreparationStepAdapter;
 import com.tastyapps.myrecipesmobile.adapters.RecipeIngredientAdapter;
 import com.tastyapps.myrecipesmobile.core.ScrollLockedLinearLayoutManager;
-import com.tastyapps.myrecipesmobile.core.mobile.Client;
+import com.tastyapps.myrecipesmobile.core.mobile.MqttClient;
 import com.tastyapps.myrecipesmobile.core.recipes.Ingredient;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
 import com.tastyapps.myrecipesmobile.core.recipes.RecipeImage;
 import com.tastyapps.myrecipesmobile.core.recipes.RecipeIngredient;
-import com.tastyapps.myrecipesmobile.core.util.EnumUtils;
 import com.tastyapps.myrecipesmobile.core.util.ImageUtil;
 import com.tastyapps.myrecipesmobile.core.util.NumberUtils;
 import com.tastyapps.myrecipesmobile.storage.RecipeStorage;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -147,21 +142,24 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
     public void onStart() {
         super.onStart();
 
-        byte[] imageBytes = Client.getInstance().imageBytes;
-        if (imageBytes != null && imageBytes.length > 0) {
-            recipe.RecipeImage = new RecipeImage(imageBytes);
-            imageRecipe.setImageBitmap(recipe.RecipeImage.Image);
+        if (recipe.RecipeImage != null) {
+            imageRecipe.setImageBitmap(recipe.RecipeImage.getImage());
+        } else {
+            imageRecipe.setImageBitmap(new RecipeImage(this.getContext()).getImage());
         }
 
         isStarting = true;
-        onScrollChanged(scroll.getCurrentScrollY() + 60, false, false);
+        onScrollChanged(scroll.getCurrentScrollY(), false, false);
         isStarting = false;
     }
 
     @Override
     public void onStop() {
-        Client.getInstance().imageBytes = ImageUtil.bitmapToByteArray(((BitmapDrawable)imageRecipe.getDrawable()).getBitmap());
-        imageRecipe.setImageBitmap(null);
+        if (recipe.RecipeImage != null) {
+            MqttClient.getInstance().imageBytes = recipe.RecipeImage.ImageBytes;
+        } else {
+            MqttClient.getInstance().imageBytes = null;
+        }
 
         super.onStop();
     }
@@ -196,18 +194,18 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
                         if (result) {
                             if (tempImageUri != null) {
                                 bottomSheetDialog.hide();
-                                Client.getInstance().recipeGuid = recipe.Guid;
+                                MqttClient.getInstance().recipeGuid = recipe.Guid;
                                 Log.d("RecipeViewFragment", "Photo taken and saved! Preparing image for transfer...");
                                 activity.getContentResolver().notifyChange(tempImageUri, null);
-                                Bitmap reducedBitmap = ImageUtil.getBitmap(activity, Client.getInstance().tempImageFilePath);
-                                Client.getInstance().selectedImage = null;
+                                Bitmap reducedBitmap = ImageUtil.getBitmap(activity, MqttClient.getInstance().tempImageFilePath);
+                                MqttClient.getInstance().selectedImage = null;
 
                                 if (reducedBitmap != null) {
                                     imageRecipe.setImageBitmap(reducedBitmap);
-                                    Client.getInstance().isUploadingImage = true;
+                                    MqttClient.getInstance().isUploadingImage = true;
                                 }
                             } else {
-                                Client.getInstance().isUploadingImage = false;
+                                MqttClient.getInstance().isUploadingImage = false;
                                 Toast.makeText(activity, "Fehler bei Bildverarbeitung!", Toast.LENGTH_LONG).show();
                             }
                         }
@@ -228,16 +226,16 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
                     final Bitmap selectedImage = BitmapFactory.decodeStream(inputStream);
 
                     Log.d("RecipeViewFragment", "Is bitmap set: " + (selectedImage != null));
-                    Client.getInstance().selectedImage = selectedImage;
-                    Client.getInstance().recipeGuid = recipe.Guid;
-                    Client.getInstance().tempImageFilePath = null;
+                    MqttClient.getInstance().selectedImage = selectedImage;
+                    MqttClient.getInstance().recipeGuid = recipe.Guid;
+                    MqttClient.getInstance().tempImageFilePath = null;
 
                     if (selectedImage != null) {
                         bottomSheetDialog.hide();
                         imageRecipe.setImageBitmap(selectedImage);
-                        Client.getInstance().isUploadingImage = true;
+                        MqttClient.getInstance().isUploadingImage = true;
                     } else {
-                        Client.getInstance().isUploadingImage = false;
+                        MqttClient.getInstance().isUploadingImage = false;
                         Toast.makeText(activity, "Fehler bei Bildverarbeitung!", Toast.LENGTH_LONG).show();
                     }
                 } catch (IOException e) {
@@ -257,7 +255,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
                 if (tempSelectedImage != null && tempSelectedImage.length > 0) {
                     Log.d("RecipeViewFragment", "tempImage array first item: " + tempSelectedImage[0]);
                     if (result != null) {
-                        Client.getInstance().sendImage("recipes/upload/" + recipe.Guid,
+                        MqttClient.getInstance().sendImage("recipes/upload/" + recipe.Guid,
                                 ImageUtil.imageUriToByteArray(getContext(), result));
                     }
                 }*/
@@ -272,8 +270,6 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_recipe_view, container, false);
 
-        //TODO: Bind recipe name to toolbar title
-        //txtName = view.findViewById(R.id.)
         inputServings = view.findViewById(R.id.input_servings);
         textWatcherInputServings = new TextWatcher() {
             @Override
@@ -397,9 +393,6 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         }
 
         inputServings.setText(String.valueOf(recipe.Servings));
-        if (recipe.RecipeImage != null && recipe.RecipeImage.Image != null) {
-            imageRecipe.setImageBitmap(recipe.RecipeImage.Image);
-        }
 
         windowManager = this.getActivity().getWindowManager();
 
@@ -441,7 +434,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
                     ".jpg",         /* suffix */
                     storageDir      /* directory */
             );
-            Client.getInstance().tempImageFilePath = image.getPath();
+            MqttClient.getInstance().tempImageFilePath = image.getPath();
         } catch (IOException e) {
             Log.d("RecipeViewFragment", "Error creating image!");
             e.printStackTrace();

@@ -7,7 +7,6 @@
     android:orientation="vertical"
     tools:context=".RecipeListFragment">
 
-    <!-- TODO: Update blank fragment layout -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -29,22 +28,24 @@
             <RadioGroup
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
+                android:orientation="horizontal"
+                android:checkedButton="@id/rb_search_name">
                 <RadioButton
+                    android:id="@+id/rb_search_name"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginHorizontal="8dp"
-                    android:checked="true"
                     android:text="Rezept" />
 
                 <RadioButton
+                    android:id="@+id/rb_search_ingredients"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginHorizontal="8dp"
                     android:text="Zutaten" />
 
                 <RadioButton
+                    android:id="@+id/rb_search_category"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginHorizontal="8dp"

@@ -11,19 +11,19 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.Toolbar;
 
 import com.tastyapps.myrecipesmobile.adapters.RecipeAdapter;
-import com.tastyapps.myrecipesmobile.core.events.OnRecipeItemClickedEventListener;
 import com.tastyapps.myrecipesmobile.core.events.OnTopicReceivedEventListener;
-import com.tastyapps.myrecipesmobile.core.mobile.Client;
+import com.tastyapps.myrecipesmobile.core.mobile.MqttClient;
 import com.tastyapps.myrecipesmobile.core.recipes.Category;
 import com.tastyapps.myrecipesmobile.core.recipes.Ingredient;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
-import com.tastyapps.myrecipesmobile.core.recipes.RecipeImage;
+import com.tastyapps.myrecipesmobile.storage.CategoryStorage;
+import com.tastyapps.myrecipesmobile.storage.IngredientStorage;
 import com.tastyapps.myrecipesmobile.storage.RecipeStorage;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -36,8 +36,9 @@ public class RecipeListFragment extends Fragment {
     private RecyclerView listRecipes;
     private RecipeAdapter recipeAdapter;
     private Toolbar toolbarRecipeView;
+    private Button btnSearch;
 
-    private Client client;
+    private MqttClient MQTTClient;
 
     public RecipeListFragment() {
         // Required empty public constructor
@@ -62,19 +63,37 @@ public class RecipeListFragment extends Fragment {
         View root = inflater.inflate(R.layout.fragment_recipe_list, container, false);
 
         initialize(root);
-        onRefreshList();
         return root;
     }
 
-    /*@Override
+    @Override
+    public void onStart() {
+        super.onStart();
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
-        initialize();
-    }*/
+        onRefreshList();
+    }
 
     public void onRefreshList() {
-        //TODO: Implement call to topic "/recipes" and show recipes in list
-        client.sendMessage("recipes", null);
+        StringBuilder loadedRecipeChecksums = null;
+        if (RecipeStorage.getInstance().size() > 0) {
+            loadedRecipeChecksums = new StringBuilder();
+            for (Recipe recipe : RecipeStorage.getInstance().getRecipes()) {
+                loadedRecipeChecksums.append(loadedRecipeChecksums.toString().equals("") ? recipe.Checksum : ";" + recipe.Checksum);
+            }
+        }
+        MQTTClient.sendMessage("recipes", loadedRecipeChecksums != null ? loadedRecipeChecksums.toString() : null);
+
+        Log.d("RecipeListFragment", "RecipeAdapter is set: " + (recipeAdapter != null));
+        if (recipeAdapter != null) {
+            recipeAdapter.notifyDataSetChanged();
+        } else {
+            recipeAdapter = new RecipeAdapter();
+            listRecipes.setAdapter(recipeAdapter);
+        }
     }
 
     public void initialize(View root) {
@@ -83,10 +102,10 @@ public class RecipeListFragment extends Fragment {
 
         toolbarRecipeView = root.findViewById(R.id.toolbar_recipe_view);
 
-        client = Client.getInstance();
+        MQTTClient = MQTTClient.getInstance();
         Context context = this.getContext();
 
-        client.setOnTopicReceivedEventListener(new OnTopicReceivedEventListener() {
+        MQTTClient.setOnTopicReceivedEventListener(new OnTopicReceivedEventListener() {
             @Override
             public void onRecipeReceived(Recipe recipe) {
                 Log.d("RecipeListFragment", "Received recipe: " + recipe.Name);
@@ -95,21 +114,13 @@ public class RecipeListFragment extends Fragment {
                     @Override
                     public void run() {
                         if (recipeAdapter == null) {
-                            ArrayList<Recipe> recipes = new ArrayList<>();
-                            if (recipe.RecipeImage == null || recipe.RecipeImage.Image == null) {
-                                recipe.RecipeImage = new RecipeImage(context);
-                            }
-                            recipes.add(recipe);
-                            recipeAdapter = new RecipeAdapter(recipes);
+                            recipeAdapter = new RecipeAdapter();
                             listRecipes.setAdapter(recipeAdapter);
-                        } else {
-                            recipeAdapter.addRecipe(recipe);
                         }
                         recipeAdapter.notifyDataSetChanged();
-                        //toolbarRecipeView.setTitle(recipe.Name);
 
-                        client.subscribeTopic("recipes/img/" + recipe.Guid);
-                        client.sendMessage("recipes/img", recipe.Guid);
+                        //MqttClient.subscribeTopic("recipes/img/" + recipe.Guid);
+                        //MqttClient.sendMessage("recipes/img", recipe.Guid);
                     }
                 });
             }
@@ -120,7 +131,7 @@ public class RecipeListFragment extends Fragment {
                 getActivity().runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        recipeAdapter.addImageForRecipe(imageBytes, recipeGuid);
+                        //recipeAdapter.addImageForRecipe(imageBytes, recipeGuid);
                         recipeAdapter.notifyDataSetChanged();
                     }
                 });
@@ -128,17 +139,17 @@ public class RecipeListFragment extends Fragment {
 
             @Override
             public void onClearRecipes() {
-                recipeAdapter.clearRecipes();
+                //recipeAdapter.clearRecipes();
             }
 
             @Override
             public void onCategoriesReceived(List<Category> categories) {
-
+                CategoryStorage.getInstance().setCategories(categories);
             }
 
             @Override
             public void onIngredientsReceived(List<Ingredient> ingredients) {
-
+                IngredientStorage.getInstance().setIngredients(ingredients);
             }
 
             @Override
@@ -147,6 +158,8 @@ public class RecipeListFragment extends Fragment {
             }
         });
 
-        client.subscribeTopic("recipes");
+        MQTTClient.subscribeTopic("recipes");
+        MQTTClient.subscribeTopic("categories");
+        MQTTClient.subscribeTopic("ingredients");
     }
 }

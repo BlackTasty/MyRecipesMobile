@@ -1,5 +1,7 @@
 package com.tastyapps.myrecipesmobile.adapters;
 
+import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,14 +17,21 @@ import java.util.List;
 
 public class RecipeAdapter extends RecyclerView.Adapter<RecipeHolder> {
     private RecipeStorage recipeStorage;
+    private Context context;
+
+    public RecipeAdapter() {
+        this.recipeStorage = RecipeStorage.getInstance();
+    }
 
     public RecipeAdapter(List<Recipe> recipes) {
-        this.recipeStorage = RecipeStorage.getInstance();
+        this();
         this.recipeStorage.setRecipes(recipes);
     }
 
     public RecipeHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-        LayoutInflater layoutInflater = LayoutInflater.from(parent.getContext());
+        this.context = parent.getContext();
+
+        LayoutInflater layoutInflater = LayoutInflater.from(context);
 
         View view = layoutInflater.inflate(R.layout.layout_recipe_listitem, parent, false);
 
@@ -49,19 +58,16 @@ public class RecipeAdapter extends RecyclerView.Adapter<RecipeHolder> {
         this.recipeStorage.setRecipes(recipeStorage);
     }
 
-    public void addRecipe(Recipe recipe) {
-        recipeStorage.add(recipe);
-    }
-
-    public void addImageForRecipe(byte[] imageBytes, String guid) {
+    /*public void addImageForRecipe(byte[] imageBytes, String guid) {
         Recipe recipe = recipeStorage.stream()
                 .filter(x -> x.Guid.equals(guid))
                 .findFirst()
                 .orElse(null);
         if (recipe != null) {
+            Log.d("RecipeAdapter", "Adding image to recipe: " + recipe.Name);
             recipe.RecipeImage = new RecipeImage(imageBytes);
         }
-    }
+    }*/
 
     public void clearRecipes() {
         recipeStorage.clear();

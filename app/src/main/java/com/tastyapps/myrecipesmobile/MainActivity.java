@@ -3,18 +3,15 @@ package com.tastyapps.myrecipesmobile;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.res.ResourcesCompat;
-import androidx.fragment.app.Fragment;
 
 import android.app.Activity;
-import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
-import android.widget.Toolbar;
 
 import com.tastyapps.myrecipesmobile.core.events.OnClientConnectedEventListener;
 import com.tastyapps.myrecipesmobile.core.events.OnRecipeItemClickedEventListener;
-import com.tastyapps.myrecipesmobile.core.mobile.Client;
+import com.tastyapps.myrecipesmobile.core.mobile.MqttClient;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
 import com.tastyapps.myrecipesmobile.core.recipes.RecipeImage;
 import com.tastyapps.myrecipesmobile.core.util.ImageUtil;
@@ -29,7 +26,7 @@ public class MainActivity extends AppCompatActivity {
     private ActionBar actionBar;
     private boolean isBackPressed;
 
-    private Client client;
+    private MqttClient MQTTClient;
     private boolean isReconnect = false;
 
     @Override
@@ -49,38 +46,38 @@ public class MainActivity extends AppCompatActivity {
             actionBar.setBackgroundDrawable(ResourcesCompat.getDrawable(getResources(), R.color.brown_700, null));
         }
 
-        Log.d("MainActivity", "Client is set: " + (client != null) + ")");
-        client = Client.getInstance();
-        client.connect(this.getApplicationContext(), isReconnect);
+        Log.d("MainActivity", "MqttClient is set: " + (MQTTClient != null) + ")");
+        MQTTClient = MQTTClient.getInstance();
+        MQTTClient.connect(this.getApplicationContext(), isReconnect);
         Activity current = this;
 
-        client.setOnClientConnectedEventListener(new OnClientConnectedEventListener() {
+        MQTTClient.setOnClientConnectedEventListener(new OnClientConnectedEventListener() {
             @Override
             public void onConnected() {
-                Log.d("MainActivity", "Connection succeeded with MQTT server! (isUploadingImage: " + client.isUploadingImage + ")");
-                Log.d("MainActivity", "Recipe guid: " + client.recipeGuid);
-                Log.d("MainActivity", "Image file path: " + client.tempImageFilePath);
-                Log.d("MainActivity", "Image set: " + (client.selectedImage != null));
+                Log.d("MainActivity", "Connection succeeded with MQTT server! (isUploadingImage: " + MQTTClient.isUploadingImage + ")");
+                Log.d("MainActivity", "Recipe guid: " + MQTTClient.recipeGuid);
+                Log.d("MainActivity", "Image file path: " + MQTTClient.tempImageFilePath);
+                Log.d("MainActivity", "Image set: " + (MQTTClient.selectedImage != null));
                 showRecipeView();
 
-                if (client.isUploadingImage) {
-                    if (client.tempImageFilePath != null) {
-                        Log.d("MainActivity", "Image size reduced! Sending to server... (Guid: " + client.recipeGuid + ")");
-                        byte[] imageBytes = ImageUtil.fileToByteArray(new File(client.tempImageFilePath));
+                if (MQTTClient.isUploadingImage) {
+                    if (MQTTClient.tempImageFilePath != null) {
+                        Log.d("MainActivity", "Image size reduced! Sending to server... (Guid: " + MQTTClient.recipeGuid + ")");
+                        byte[] imageBytes = ImageUtil.fileToByteArray(new File(MQTTClient.tempImageFilePath));
 
-                        Recipe recipe = RecipeStorage.getInstance().getRecipeByGuid(client.recipeGuid);
+                        Recipe recipe = RecipeStorage.getInstance().getRecipeByGuid(MQTTClient.recipeGuid);
                         recipe.RecipeImage = new RecipeImage(imageBytes);
-                        Client.getInstance().sendImage("recipes/upload/" + client.recipeGuid, imageBytes);
-                    } else if (client.selectedImage != null) {
-                        byte[] imageBytes = ImageUtil.bitmapToByteArray(Client.getInstance().selectedImage);
+                        MQTTClient.getInstance().sendImage("recipes/upload/" + MQTTClient.recipeGuid, imageBytes);
+                    } else if (MQTTClient.selectedImage != null) {
+                        byte[] imageBytes = ImageUtil.bitmapToByteArray(MQTTClient.getInstance().selectedImage);
 
                         Log.d("MainActivity", "Image bytes length: " + imageBytes.length);
-                        Recipe recipe = RecipeStorage.getInstance().getRecipeByGuid(client.recipeGuid);
+                        Recipe recipe = RecipeStorage.getInstance().getRecipeByGuid(MQTTClient.recipeGuid);
                         recipe.RecipeImage = new RecipeImage(imageBytes);
-                        Client.getInstance().sendImage("recipes/upload/" + client.recipeGuid, imageBytes);
+                        MQTTClient.getInstance().sendImage("recipes/upload/" + MQTTClient.recipeGuid, imageBytes);
                     }
 
-                    Client.getInstance().isUploadingImage = false;
+                    MQTTClient.getInstance().isUploadingImage = false;
                 }
             }
 
@@ -93,7 +90,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         /*if (!isBackPressed) {
-            Client.getInstance().reconnect(this.getApplicationContext());
+            MqttClient.getInstance().reconnect(this.getApplicationContext());
         }*/
     }
 
@@ -145,11 +142,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onStop() {
-        if (!isBackPressed) {
-
-        }
         Log.d("MainActivity", "Activity stopped");
-        Client.getInstance().disconnect();
+        MQTTClient.getInstance().disconnect();
         super.onStop();
     }
 }

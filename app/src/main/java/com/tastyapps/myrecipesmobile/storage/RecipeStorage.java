@@ -29,10 +29,6 @@ public class RecipeStorage {
         this.onRecipeItemClickedEventListener = onRecipeItemClickedEventListener;
     }
 
-    public void releaseEventListeners() {
-        onRecipeItemClickedEventListener = null;
-    }
-
     public List<Recipe> getRecipes() {
         return recipes;
     }
@@ -45,8 +41,17 @@ public class RecipeStorage {
         this.recipes = recipes;
     }
 
-    public void add(Recipe recipe) {
-        recipes.add(recipe);
+    public boolean add(Recipe recipe) {
+        Recipe old = stream().filter(x -> x.Guid.equals(recipe.Guid)).findFirst().orElse(null);
+        if (old != null) {
+            int index = recipes.indexOf(old);
+            recipes.remove(old);
+            recipes.add(index, recipe);
+        } else {
+            recipes.add(recipe);
+        }
+
+        return old != null;
     }
 
     public void clear() {
