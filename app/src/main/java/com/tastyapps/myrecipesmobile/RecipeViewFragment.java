@@ -1,6 +1,10 @@
 package com.tastyapps.myrecipesmobile;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.DatePickerDialog;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -11,6 +15,7 @@ import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.AppCompatTextView;
 import androidx.cardview.widget.CardView;
 import androidx.core.content.ContextCompat;
@@ -41,10 +46,12 @@ import com.github.ksoichiro.android.observablescrollview.ObservableScrollViewCal
 import com.github.ksoichiro.android.observablescrollview.ScrollState;
 import com.github.ksoichiro.android.observablescrollview.ScrollUtils;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.tastyapps.myrecipesmobile.adapters.PreparationStepAdapter;
 import com.tastyapps.myrecipesmobile.adapters.RecipeIngredientAdapter;
 import com.tastyapps.myrecipesmobile.core.ScrollLockedLinearLayoutManager;
 import com.tastyapps.myrecipesmobile.core.mobile.MqttClient;
+import com.tastyapps.myrecipesmobile.core.mobile.events.OnMqttRecipeImageRemovedEventListener;
 import com.tastyapps.myrecipesmobile.core.recipes.Ingredient;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
 import com.tastyapps.myrecipesmobile.core.recipes.RecipeImage;
@@ -69,7 +76,6 @@ import java.util.Locale;
  */
 public class RecipeViewFragment extends Fragment implements ObservableScrollViewCallbacks {
     private TextWatcher textWatcherInputServings;
-    private TextWatcher textWatcherInputHoverServings;
     private BottomSheetDialog bottomSheetDialog;
 
     private ActivityResultLauncher<Uri> imageFromCamera;
@@ -105,7 +111,11 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
     private TextView txtPreparationStepsTitle;
     private Button btnIncreaseServings;
     private Button btnDecreaseServings;
-    private Button btnUploadImage;
+    private Button btnHoverIncreaseServings;
+    private Button btnHoverDecreaseServings;
+
+    private FloatingActionButton btnUploadImage;
+    private FloatingActionButton btnRemoveImage;
 
     private CardView containerIngredients;
     private LinearLayout containerHoverIngredients;
@@ -144,12 +154,32 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
 
         if (recipe.RecipeImage != null) {
             imageRecipe.setImageBitmap(recipe.RecipeImage.getImage());
+            btnRemoveImage.setVisibility(View.VISIBLE);
         } else {
             imageRecipe.setImageBitmap(new RecipeImage(this.getContext()).getImage());
+            btnRemoveImage.setVisibility(View.GONE);
         }
 
         isStarting = true;
         onScrollChanged(scroll.getCurrentScrollY(), false, false);
+
+        Context context = getContext();
+        MqttClient.getInstance().setOnRecipeImageRemovedEventListener(new OnMqttRecipeImageRemovedEventListener() {
+            @Override
+            public void onRecipeImageRemoved(String guid) {
+                getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.d("RecipeViewFragment", "Image removed on broker!");
+                        recipe.RecipeImage.recycle();
+                        recipe.RecipeImage = new RecipeImage(context);
+                        imageRecipe.setImageDrawable(AppCompatResources.getDrawable(context, R.drawable.no_image));
+                        btnRemoveImage.setVisibility(View.GONE);
+                        Log.d("RecipeViewFragment", "UI updated");
+                    }
+                });
+            }
+        });
         isStarting = false;
     }
 
@@ -162,10 +192,6 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         }
 
         super.onStop();
-    }
-
-    public void releaseEventListeners() {
-
     }
 
     @Override
@@ -202,6 +228,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
 
                                 if (reducedBitmap != null) {
                                     imageRecipe.setImageBitmap(reducedBitmap);
+                                    btnRemoveImage.setVisibility(View.VISIBLE);
                                     MqttClient.getInstance().isUploadingImage = true;
                                 }
                             } else {
@@ -233,6 +260,7 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
                     if (selectedImage != null) {
                         bottomSheetDialog.hide();
                         imageRecipe.setImageBitmap(selectedImage);
+                        btnRemoveImage.setVisibility(View.VISIBLE);
                         MqttClient.getInstance().isUploadingImage = true;
                     } else {
                         MqttClient.getInstance().isUploadingImage = false;
@@ -270,7 +298,10 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_recipe_view, container, false);
 
+        // Get serving inputs from both default and hover view and set textwatcher events
         inputServings = view.findViewById(R.id.input_servings);
+        inputHoverServings = view.findViewById(R.id.input_hover_servings);
+
         textWatcherInputServings = new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
@@ -287,26 +318,10 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
                 updateServingsFields(inputServings, inputHoverServings);
             }
         };
+
         inputServings.addTextChangedListener(textWatcherInputServings);
+        inputHoverServings.addTextChangedListener(textWatcherInputServings);
 
-        inputHoverServings = view.findViewById(R.id.input_hover_servings);
-        textWatcherInputHoverServings = new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-
-            }
-
-            @Override
-            public void afterTextChanged(Editable editable) {
-                updateServingsFields(inputHoverServings, inputServings);
-            }
-        };
-        inputHoverServings.addTextChangedListener(textWatcherInputHoverServings);
         imageRecipe = view.findViewById(R.id.recipe_image);
 
         listIngredients = view.findViewById(R.id.list_ingredients);
@@ -319,20 +334,20 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         toolbarBaseColor = ContextCompat.getColor(this.getActivity().getApplicationContext(), R.color.brown_700);
 
         toggleIngredientList = view.findViewById(R.id.toggle_list_ingredient);
-        toggleIngredientList.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                onToggleIngredientList();
-            }
-        });
+        toggleIngredientList.setOnClickListener(toggle -> onToggleIngredientList());
         txtPreparationStepsTitle = view.findViewById(R.id.txt_preparationsteps_title);
 
         containerIngredients = view.findViewById(R.id.container_ingredients);
         containerHoverIngredients = view.findViewById(R.id.container_hover_ingredients);
         containerSubIngredients = view.findViewById(R.id.container_sub_ingredients);
 
+        // Get increase and decrease buttons from both default and hover views and set events
         btnDecreaseServings = view.findViewById(R.id.btn_decrease_servings);
-        btnDecreaseServings.setOnClickListener(new View.OnClickListener() {
+        btnIncreaseServings = view.findViewById(R.id.btn_increase_servings);
+        btnHoverDecreaseServings = view.findViewById(R.id.btn_hover_decrease_servings);
+        btnHoverIncreaseServings = view.findViewById(R.id.btn_hover_increase_servings);
+
+        View.OnClickListener decreaseClick = new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 if (NumberUtils.isValidInteger(inputServings.getText().toString())) {
@@ -341,9 +356,9 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
                     inputServings.setText("1");
                 }
             }
-        });
-        btnIncreaseServings = view.findViewById(R.id.btn_increase_servings);
-        btnIncreaseServings.setOnClickListener(new View.OnClickListener() {
+        };
+
+        View.OnClickListener increaseClick = new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 if (NumberUtils.isValidInteger(inputServings.getText().toString())) {
@@ -352,18 +367,21 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
                     inputServings.setText("1");
                 }
             }
-        });
+        };
+
+        btnDecreaseServings.setOnClickListener(decreaseClick);
+        btnIncreaseServings.setOnClickListener(increaseClick);
+        btnHoverDecreaseServings.setOnClickListener(decreaseClick);
+        btnHoverIncreaseServings.setOnClickListener(increaseClick);
 
         btnUploadImage = view.findViewById(R.id.btn_upload_image);
-        btnUploadImage.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                showUploadImageSheetDialog();
-            }
-        });
+        btnUploadImage.setOnClickListener(button -> showUploadImageSheetDialog());
+        btnRemoveImage = view.findViewById(R.id.btn_remove_image);
+        btnRemoveImage.setOnClickListener(button -> showRemoveImageDialog(button.getContext()));
+
 
         boolean hasCamera = this.getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
-        btnUploadImage.setVisibility(!hasCamera || recipe.isImageSet() ? View.GONE : View.VISIBLE);
+        btnUploadImage.setVisibility(!hasCamera ? View.GONE : View.VISIBLE);
 
         listSteps.setLayoutManager(new ScrollLockedLinearLayoutManager(getActivity()));
         listHoverIngredients.setLayoutManager(new ScrollLockedLinearLayoutManager(getActivity()));
@@ -398,6 +416,9 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
 
         toolbar = view.findViewById(R.id.toolbar_recipe_view);
         toolbar.setTitle(recipe.Name);
+
+        Fragment fragment = this;
+        toolbar.setNavigationOnClickListener(view1 -> fragment.getActivity().onBackPressed());
 
         isInitialized = true;
         return view;
@@ -443,6 +464,26 @@ public class RecipeViewFragment extends Fragment implements ObservableScrollView
         // Save a file: path for use with ACTION_VIEW intents
         //currentPhotoPath = image.getAbsolutePath();
         return image;
+    }
+
+    private void showRemoveImageDialog(Context context) {
+        DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                if (i == DialogInterface.BUTTON_POSITIVE) {
+                    Log.d("RecipeViewFragment", "Sending image remove request to broker...");
+                    MqttClient.getInstance().subscribeTopic("recipes/img/remove");
+                    MqttClient.getInstance().sendMessage("recipes/img/remove", recipe.Guid);
+                }
+                dialogInterface.dismiss();
+            }
+        };
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle("Bild entfernen")
+                .setMessage("Möchtest du das Bild wirklich entfernen?")
+                .setPositiveButton("Ja", dialogClickListener)
+                .setNegativeButton("Nein", dialogClickListener).show();
     }
 
     private void showUploadImageSheetDialog() {

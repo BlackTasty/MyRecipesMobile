@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/navigation_main"
+    app:startDestination="@id/menu_recipes">
+    <fragment android:id="@+id/menu_history"
+        android:label="Verlauf"
+        android:name="com.tastyapps.myrecipesmobile.HistoryFragment"/>
+    <fragment android:id="@+id/menu_recipes"
+        android:label="Rezepte"
+        android:name="com.tastyapps.myrecipesmobile.RecipeListFragment">
+        <action
+            android:id="@+id/action_menu_recipes_to_recipeViewFragment"
+            app:destination="@id/menu_recipeview" />
+    </fragment>
+    <fragment android:id="@+id/menu_seasoncalendar"
+        android:label="Saisonkalendar"
+        android:name="com.tastyapps.myrecipesmobile.SeasonCalendarFragment"/>
+    <fragment
+        android:id="@+id/menu_recipeview"
+        android:name="com.tastyapps.myrecipesmobile.RecipeViewFragment"
+        android:label="RecipeViewFragment" >
+        <argument
+            android:name="guid"
+            app:argType="string"
+            android:defaultValue="@null"/>
+    </fragment>
+</navigation>

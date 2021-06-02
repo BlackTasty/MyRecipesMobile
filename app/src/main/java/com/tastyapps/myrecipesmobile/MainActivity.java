@@ -3,12 +3,20 @@ package com.tastyapps.myrecipesmobile;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.res.ResourcesCompat;
+import androidx.fragment.app.FragmentContainerView;
+import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
+import androidx.navigation.fragment.NavHostFragment;
+import androidx.navigation.ui.AppBarConfiguration;
+import androidx.navigation.ui.NavigationUI;
 
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.navigation.NavigationView;
 import com.tastyapps.myrecipesmobile.core.events.OnClientConnectedEventListener;
 import com.tastyapps.myrecipesmobile.core.events.OnRecipeItemClickedEventListener;
 import com.tastyapps.myrecipesmobile.core.mobile.MqttClient;
@@ -25,6 +33,8 @@ public class MainActivity extends AppCompatActivity {
 
     private ActionBar actionBar;
     private boolean isBackPressed;
+    private BottomNavigationView bottomNav;
+    private NavController navController;
 
     private MqttClient MQTTClient;
     private boolean isReconnect = false;
@@ -34,6 +44,16 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         this.savedInstanceState = savedInstanceState;
+
+        // Bottom nav setup
+        bottomNav = findViewById(R.id.main_bottom_nav);
+        AppBarConfiguration appBarConfiguration = new AppBarConfiguration
+                .Builder(R.id.menu_history, R.id.menu_recipes, R.id.menu_seasoncalendar)
+                .build();
+
+        navController = Navigation.findNavController(this, R.id.nav_host_main);
+        NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
+        NavigationUI.setupWithNavController(bottomNav, navController);
     }
 
     @Override
@@ -89,6 +109,24 @@ public class MainActivity extends AppCompatActivity {
                 current.finish();
             }
         });
+
+        RecipeStorage.getInstance().setOnRecipeItemClickedEventListener(new OnRecipeItemClickedEventListener() {
+            @Override
+            public void onItemClick(Recipe recipe) {
+                Log.d("MainActivity", "Recipe item has been clicked, transitioning to RecipeViewFragment...");
+                Bundle bundle = new Bundle();
+                bundle.putString("guid", recipe.Guid);
+                navController.navigate(R.id.action_menu_recipes_to_recipeViewFragment, bundle);
+
+                /*getSupportFragmentManager().beginTransaction()
+                        .setReorderingAllowed(true)
+                        .replace(R.id.nav_host_main, RecipeViewFragment.newInstance(recipe.Guid), null)
+                        .commit();*/
+
+                actionBar.hide();
+                isRecipeViewOpen = true;
+            }
+        });
         /*if (!isBackPressed) {
             MqttClient.getInstance().reconnect(this.getApplicationContext());
         }*/
@@ -102,26 +140,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void showRecipeView() {
         if (savedInstanceState == null && !isReconnect) {
-
-            getSupportFragmentManager().beginTransaction()
+            bottomNav.setSelectedItemId(R.id.menu_recipes);
+            /*getSupportFragmentManager().beginTransaction()
                     .setReorderingAllowed(true)
                     .add(R.id.main_fragment_container, RecipeListFragment.newInstance(), null)
-                    .commit();
+                    .commit();*/
         }
-
-        RecipeStorage.getInstance().setOnRecipeItemClickedEventListener(new OnRecipeItemClickedEventListener() {
-            @Override
-            public void onItemClick(Recipe recipe) {
-                Log.d("MainActivity", "Recipe item has been clicked, transitioning to RecipeViewFragment...");
-                getSupportFragmentManager().beginTransaction()
-                        .setReorderingAllowed(true)
-                        .replace(R.id.main_fragment_container, RecipeViewFragment.newInstance(recipe.Guid), null)
-                        .commit();
-
-                actionBar.hide();
-                isRecipeViewOpen = true;
-            }
-        });
     }
 
     @Override
@@ -131,10 +155,11 @@ public class MainActivity extends AppCompatActivity {
             super.onBackPressed();
         } else {
             isBackPressed = false;
-            getSupportFragmentManager().beginTransaction()
+            bottomNav.setSelectedItemId(R.id.menu_recipes);
+            /*getSupportFragmentManager().beginTransaction()
                     .setReorderingAllowed(true)
                     .replace(R.id.main_fragment_container, RecipeListFragment.newInstance(), null)
-                    .commit();
+                    .commit();*/
             actionBar.show();
             isRecipeViewOpen = false;
         };

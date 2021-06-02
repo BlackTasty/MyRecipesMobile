@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/menu_history"
+        android:title="Verlauf"
+        android:icon="@drawable/ic_history"/>
+    <item android:id="@+id/menu_recipes"
+        android:title="Rezepte"
+        android:icon="@drawable/ic_chef_hat"/>
+    <item android:id="@+id/menu_seasoncalendar"
+        android:title="Saisonkalendar"
+        android:icon="@drawable/ic_timetable"/>
+</menu>

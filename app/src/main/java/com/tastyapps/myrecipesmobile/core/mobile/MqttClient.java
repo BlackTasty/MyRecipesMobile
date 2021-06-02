@@ -9,7 +9,14 @@ import com.google.gson.Gson;
 import com.tastyapps.myrecipesmobile.core.events.OnClientConnectedEventListener;
 import com.tastyapps.myrecipesmobile.core.events.OnClientDestroyedEventListener;
 import com.tastyapps.myrecipesmobile.core.events.OnClientDisconnectedEventListener;
-import com.tastyapps.myrecipesmobile.core.events.OnTopicReceivedEventListener;
+import com.tastyapps.myrecipesmobile.core.mobile.events.OnMqttCategoriesReceivedEventListener;
+import com.tastyapps.myrecipesmobile.core.mobile.events.OnMqttClearRecipesEventListener;
+import com.tastyapps.myrecipesmobile.core.mobile.events.OnMqttIngredientReceivedEventListener;
+import com.tastyapps.myrecipesmobile.core.mobile.events.OnMqttRecipeImageReceivedEventListener;
+import com.tastyapps.myrecipesmobile.core.mobile.events.OnMqttRecipeImageRemovedEventListener;
+import com.tastyapps.myrecipesmobile.core.mobile.events.OnMqttRecipeReceivedEventListener;
+import com.tastyapps.myrecipesmobile.core.mobile.events.OnMqttRecipeTransferFinishEventListener;
+import com.tastyapps.myrecipesmobile.core.mobile.events.OnMqttSeasonCalendarDataReceivedEventListener;
 import com.tastyapps.myrecipesmobile.core.recipes.Category;
 import com.tastyapps.myrecipesmobile.core.recipes.Ingredient;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
@@ -44,8 +51,18 @@ public class MqttClient implements MqttCallback {
 
     private OnClientConnectedEventListener onClientConnectedEventListener;
     private OnClientDisconnectedEventListener onClientDisconnectedEventListener;
-    private OnTopicReceivedEventListener onTopicReceivedEventListener;
+    //private OnTopicReceivedEventListener onTopicReceivedEventListener;
     private OnClientDestroyedEventListener onClientDestroyedEventListener;
+
+    // Topic events
+    private OnMqttCategoriesReceivedEventListener onCategoriesReceivedEventListener;
+    private OnMqttClearRecipesEventListener onClearRecipesEventListener;
+    private OnMqttIngredientReceivedEventListener onIngredientReceivedEventListener;
+    private OnMqttRecipeImageReceivedEventListener onRecipeImageReceivedEventListener;
+    private OnMqttRecipeImageRemovedEventListener onRecipeImageRemovedEventListener;
+    private OnMqttRecipeReceivedEventListener onRecipeReceivedEventListener;
+    private OnMqttRecipeTransferFinishEventListener onRecipeTransferFinishEventListener;
+    private OnMqttSeasonCalendarDataReceivedEventListener onSeasonCalendarDataReceivedEventListener;
 
     private MqttAndroidClient client;
     private boolean connected;
@@ -76,12 +93,41 @@ public class MqttClient implements MqttCallback {
         this.onClientDisconnectedEventListener = listener;
     }
 
-    public void setOnTopicReceivedEventListener(OnTopicReceivedEventListener onTopicReceivedEventListener) {
-        this.onTopicReceivedEventListener = onTopicReceivedEventListener;
-    }
-
     public void setOnClientDestroyedEventListener(OnClientDestroyedEventListener onClientDestroyedEventListener) {
         this.onClientDestroyedEventListener = onClientDestroyedEventListener;
+    }
+
+    // Setters for topic events
+    public void setOnCategoriesReceivedEventListener(OnMqttCategoriesReceivedEventListener onCategoriesReceivedEventListener) {
+        this.onCategoriesReceivedEventListener = onCategoriesReceivedEventListener;
+    }
+
+    public void setOnClearRecipesEventListener(OnMqttClearRecipesEventListener onClearRecipesEventListener) {
+        this.onClearRecipesEventListener = onClearRecipesEventListener;
+    }
+
+    public void setOnIngredientReceivedEventListener(OnMqttIngredientReceivedEventListener onIngredientReceivedEventListener) {
+        this.onIngredientReceivedEventListener = onIngredientReceivedEventListener;
+    }
+
+    public void setOnRecipeImageReceivedEventListener(OnMqttRecipeImageReceivedEventListener onRecipeImageReceivedEventListener) {
+        this.onRecipeImageReceivedEventListener = onRecipeImageReceivedEventListener;
+    }
+
+    public void setOnRecipeImageRemovedEventListener(OnMqttRecipeImageRemovedEventListener onRecipeImageRemovedEventListener) {
+        this.onRecipeImageRemovedEventListener = onRecipeImageRemovedEventListener;
+    }
+
+    public void setOnRecipeReceivedEventListener(OnMqttRecipeReceivedEventListener onRecipeReceivedEventListener) {
+        this.onRecipeReceivedEventListener = onRecipeReceivedEventListener;
+    }
+
+    public void setOnRecipeTransferFinishEventListener(OnMqttRecipeTransferFinishEventListener onRecipeTransferFinishEventListener) {
+        this.onRecipeTransferFinishEventListener = onRecipeTransferFinishEventListener;
+    }
+
+    public void setOnSeasonCalendarDataReceivedEventListener(OnMqttSeasonCalendarDataReceivedEventListener onSeasonCalendarDataReceivedEventListener) {
+        this.onSeasonCalendarDataReceivedEventListener = onSeasonCalendarDataReceivedEventListener;
     }
 
     public boolean isConnected() {
@@ -295,31 +341,31 @@ public class MqttClient implements MqttCallback {
             return false;
         }
 
+        String clientTopic = getClientId() + "/" + topic;
         try {
-            String clientTopic = getClientId() + "/" + topic;
 
             if (subscribedTopics.contains(clientTopic)) {
-                Log.d("MqttClient", "Already subscribed to topic \"" + topic + "\"!");
+                Log.d("MqttClient", "Already subscribed to topic \"" + clientTopic + "\"!");
                 return false;
             }
 
             client.subscribe(clientTopic, 0, null, new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
-                    Log.d("MqttClient", "Subscribed to topic \"" + topic + "\"!");
+                    Log.d("MqttClient", "Subscribed to topic \"" + clientTopic + "\"!");
                     subscribedTopics.add(clientTopic);
                 }
 
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                    Log.d("MqttClient", "Error subscribing to topic \"" + topic + "\"!");
+                    Log.d("MqttClient", "Error subscribing to topic \"" + clientTopic + "\"!");
                     if (exception != null) {
                         exception.printStackTrace();
                     }
                 }
             }, this::messageArrived);
         } catch (MqttException e) {
-            Log.d("MqttClient", "An exception has been thrown while trying to subscribe to topic \"" + topic + "\"!");
+            Log.d("MqttClient", "An exception has been thrown while trying to subscribe to topic \"" + clientTopic + "\"!");
             e.printStackTrace();
         }
 
@@ -372,7 +418,9 @@ public class MqttClient implements MqttCallback {
         } else if (topic.equals(getClientId() + "/recipes/clear")) {
             //Start of recipe list transfer
             Log.d("MqttClient", "Received command to clear available recipes");
-            onTopicReceivedEventListener.onClearRecipes();
+            if (onClearRecipesEventListener != null) {
+                onClearRecipesEventListener.onClearRecipes();
+            }
         } else if (topic.equals(getClientId() + "/recipes")) {
             Recipe recipe = Recipe.fromJson(payload);
             Log.d("MqttClient", "Received recipe \"" + recipe.Name + "\" (GUID: " + recipe.Guid + ")");
@@ -385,10 +433,16 @@ public class MqttClient implements MqttCallback {
             }
 
             RecipeStorage.getInstance().add(recipe);
-            onTopicReceivedEventListener.onRecipeReceived(recipe);
+            if (onRecipeReceivedEventListener != null) {
+                onRecipeReceivedEventListener.onRecipeReceived(recipe);
+            }
             subscribeTopic("recipes/img/" + recipe.Guid);
             sendMessage("recipes/img", recipe.Guid);
 
+        } else if (topic.equals(getClientId() + "/recipes/img/remove")) {
+            if (onRecipeImageRemovedEventListener != null) {
+                onRecipeImageRemovedEventListener.onRecipeImageRemoved(payload);
+            }
         } else if (topic.startsWith(getClientId() + "/recipes/img/")) {
             String guid = topic.replace(getClientId() + "/recipes/img/", "");
             Log.d("MqttClient", "Received image for recipe GUID: " + guid);
@@ -400,10 +454,17 @@ public class MqttClient implements MqttCallback {
             if (recipe != null && payloadBytes != null) {
                 Log.d("MqttClient", "Adding image to recipe: " + recipe.Name);
                 recipe.RecipeImage = new RecipeImage(payloadBytes);
-                onTopicReceivedEventListener.onRecipeImageReceived(payloadBytes, guid);
+                if (onRecipeImageReceivedEventListener != null) {
+                    onRecipeImageReceivedEventListener.onRecipeImageReceived(payloadBytes, guid);
+                }
             }
 
-        } else if (topic.equals(getClientId() + "/season")) {
+        }else if (topic.equals(getClientId() + "/recipes/finish")) {
+            if (onRecipeTransferFinishEventListener != null) {
+                onRecipeTransferFinishEventListener.onRecipeTransferFinish();
+            }
+        }
+        else if (topic.equals(getClientId() + "/season")) {
 
         }
     }

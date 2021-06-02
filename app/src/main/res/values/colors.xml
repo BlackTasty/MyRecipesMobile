@@ -10,4 +10,5 @@
     <color name="white">#FFFFFFFF</color>
 
     <color name="background_card">#33DDDDDD</color>
+    <color name="warn">#FFBD4646</color>
 </resources>

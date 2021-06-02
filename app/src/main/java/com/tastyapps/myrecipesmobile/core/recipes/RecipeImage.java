@@ -15,6 +15,12 @@ public class RecipeImage {
     public Bitmap Image;
     public String RecipeGuid;
 
+    private boolean isPlaceholderImage;
+
+    public boolean isPlaceholderImage() {
+        return isPlaceholderImage;
+    }
+
     public Bitmap getImage() {
         if (Image == null) {
             return null;
@@ -33,6 +39,7 @@ public class RecipeImage {
     public RecipeImage(Context context) {
         Image = BitmapFactory.decodeResource(context.getResources(), R.drawable.no_image);
         ImageBytes = ImageUtil.bitmapToByteArray(Image);
+        isPlaceholderImage = true;
     }
 
     public void recycle() {
