@@ -74,6 +74,7 @@ public class MqttClient implements MqttCallback {
     public byte[] imageBytes;
 
     private List<String> subscribedTopics = new ArrayList<>();
+    private Context appContext;
 
     private MqttClient() {
         onClientConnectedEventListener = null;
@@ -150,6 +151,7 @@ public class MqttClient implements MqttCallback {
             return;
         }
 
+        this.appContext = appContext;
         String clientId = org.eclipse.paho.client.mqttv3.MqttClient.generateClientId();
         client = new MqttAndroidClient(appContext, "tcp://" + addressCurrent + ":1883", clientId);
         MqttConnectOptions mqttConnectOptions = new MqttConnectOptions();
@@ -405,16 +407,21 @@ public class MqttClient implements MqttCallback {
             }
         } else {
             Log.d("MqttClient", "Payload has image data");
+            Log.d("MqttClient", "Payload length: " + (payloadBytes != null ? payloadBytes.length : -1));
         }
 
         if (topic.equals(getClientId() + "/categories")) {
             Log.d("MqttClient", "Received available categories");
             Category[] categories = new Gson().fromJson(payload, Category[].class);
-            CategoryStorage.getInstance().setCategories(Arrays.asList(categories.clone()));
+            if (onCategoriesReceivedEventListener != null) {
+                onCategoriesReceivedEventListener.onCategoriesReceived(Arrays.asList(categories.clone()));
+            }
         } else if (topic.equals(getClientId() + "/ingredients")) {
             Log.d("MqttClient", "Received available ingredients");
             Ingredient[] ingredients = new Gson().fromJson(payload, Ingredient[].class);
-            IngredientStorage.getInstance().setIngredients(Arrays.asList(ingredients.clone()));
+            if (onIngredientReceivedEventListener != null) {
+                onIngredientReceivedEventListener.onIngredientsReceived(Arrays.asList(ingredients.clone()));
+            }
         } else if (topic.equals(getClientId() + "/recipes/clear")) {
             //Start of recipe list transfer
             Log.d("MqttClient", "Received command to clear available recipes");
@@ -451,9 +458,12 @@ public class MqttClient implements MqttCallback {
                     .filter(x -> x.Guid.equals(guid))
                     .findFirst()
                     .orElse(null);
-            if (recipe != null && payloadBytes != null) {
+            if (recipe != null) {
                 Log.d("MqttClient", "Adding image to recipe: " + recipe.Name);
-                recipe.RecipeImage = new RecipeImage(payloadBytes);
+                if (payloadBytes == null) {
+                    Log.d("MqttClient", "Recipe has no image set, using default image");
+                }
+                recipe.RecipeImage = payloadBytes != null && payloadBytes.length > 0 ? new RecipeImage(payloadBytes) : new RecipeImage(appContext);
                 if (onRecipeImageReceivedEventListener != null) {
                     onRecipeImageReceivedEventListener.onRecipeImageReceived(payloadBytes, guid);
                 }

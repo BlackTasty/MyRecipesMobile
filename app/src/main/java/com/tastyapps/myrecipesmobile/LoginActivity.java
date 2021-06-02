@@ -18,6 +18,8 @@ import android.widget.EditText;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.tastyapps.myrecipesmobile.core.mobile.MqttClient;
 import com.tastyapps.myrecipesmobile.databinding.ActivityLoginBinding;
+import com.tastyapps.myrecipesmobile.storage.CategoryStorage;
+import com.tastyapps.myrecipesmobile.storage.IngredientStorage;
 import com.tastyapps.myrecipesmobile.storage.RecipeStorage;
 
 public class LoginActivity extends AppCompatActivity {
@@ -70,6 +72,8 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         RecipeStorage.getInstance().clear();
+        IngredientStorage.getInstance().clear();
+        CategoryStorage.getInstance().clear();
     }
 
     public void onConnectClick(View view) {

@@ -2,12 +2,13 @@ package com.tastyapps.myrecipesmobile.storage;
 
 import android.util.Log;
 
+import com.tastyapps.myrecipesmobile.core.FilterObject;
 import com.tastyapps.myrecipesmobile.core.events.OnRecipeItemClickedEventListener;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
-import com.tastyapps.myrecipesmobile.core.recipes.RecipeImage;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class RecipeStorage {
@@ -15,10 +16,13 @@ public class RecipeStorage {
 
     private OnRecipeItemClickedEventListener onRecipeItemClickedEventListener;
 
-    private List<Recipe> recipes;
+    private List<Recipe> allRecipes;
+    private List<Recipe> filteredRecipes;
+    private boolean isFiltered;
 
     private RecipeStorage() {
-        recipes = new ArrayList<>();
+        allRecipes = new ArrayList<>();
+        filteredRecipes = new ArrayList<>();
     }
 
     public static RecipeStorage getInstance() {
@@ -30,44 +34,88 @@ public class RecipeStorage {
     }
 
     public List<Recipe> getRecipes() {
-        return recipes;
+        return !isFiltered ? allRecipes : filteredRecipes;
     }
 
     public Recipe getRecipeByGuid(String guid) {
-        return recipes.stream().filter(x -> x.Guid == guid).findFirst().orElse(null);
+        return allRecipes.stream().filter(x -> x.Guid == guid).findFirst().orElse(null);
     }
 
     public void setRecipes(List<Recipe> recipes) {
-        this.recipes = recipes;
+        this.allRecipes = recipes;
     }
 
     public boolean add(Recipe recipe) {
         Recipe old = stream().filter(x -> x.Guid.equals(recipe.Guid)).findFirst().orElse(null);
         if (old != null) {
-            int index = recipes.indexOf(old);
-            recipes.remove(old);
-            recipes.add(index, recipe);
+            int index = allRecipes.indexOf(old);
+            allRecipes.remove(old);
+            allRecipes.add(index, recipe);
         } else {
-            recipes.add(recipe);
+            allRecipes.add(recipe);
         }
 
         return old != null;
     }
 
     public void clear() {
-        recipes.clear();
+        allRecipes.clear();
+        filteredRecipes.clear();
     }
 
     public Recipe get(int position) {
-        return recipes.get(position);
+        return !isFiltered ? allRecipes.get(position) : filteredRecipes.get(position);
     }
 
     public int size() {
-        return recipes != null ? recipes.size() : 0;
+        return !isFiltered ? allRecipes.size() : filteredRecipes.size();
     }
 
     public Stream<Recipe> stream() {
-        return recipes.stream();
+        return allRecipes.stream();
+    }
+
+    public void filterRecipesByName(String recipeName) {
+        isFiltered = !recipeName.equals("");
+        if (isFiltered) {
+            filteredRecipes = stream()
+                    .filter(x -> x.Name.toLowerCase().contains(recipeName.toLowerCase()))
+                    .collect(Collectors.toList());
+        } else {
+            filteredRecipes.clear();
+        }
+    }
+
+    public void filterRecipesByCategory(FilterObject categoryFilter) {
+        isFiltered = !categoryFilter.isDefault();
+        if (isFiltered) {
+            filteredRecipes = stream()
+                    .filter(x -> x.Categories.stream().anyMatch(y -> y.Name.equals(categoryFilter.getName())))
+                    .collect(Collectors.toList());
+        } else {
+            filteredRecipes.clear();
+        }
+    }
+
+    public void filterRecipesByIngredient(List<FilterObject> ingredientsFilter) {
+        isFiltered = !ingredientsFilter.isEmpty();
+        if (isFiltered) {
+            for (Recipe recipe : allRecipes) {
+                boolean matchesIngredientSearch = true;
+                for (FilterObject filterIngredient : ingredientsFilter) {
+                    if (!recipe.Ingredients.stream().anyMatch(x -> x.Ingredient.Name.equals(filterIngredient.getName()))) {
+                        matchesIngredientSearch = false;
+                        break;
+                    }
+                }
+
+                if (matchesIngredientSearch) {
+                    filteredRecipes.add(recipe);
+                }
+            }
+        } else {
+            filteredRecipes.clear();
+        }
     }
 
     public void onRecipeSelect(Recipe recipe) {

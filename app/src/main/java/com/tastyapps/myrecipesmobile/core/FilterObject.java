@@ -10,6 +10,7 @@ public class FilterObject {
     private String name;
     private int counted;
     private BaseData data;
+    private boolean isDefault;
 
     public String getName() {
         return name;
@@ -19,22 +20,31 @@ public class FilterObject {
         return counted;
     }
 
+    public void setCounted(int counted) {
+        this.counted = counted;
+    }
+
+    public boolean isDefault() {
+        return isDefault;
+    }
+
     public BaseData getData() {
         return data;
     }
 
-    public FilterObject(String name) {
+    public FilterObject(String name, boolean isDefault) {
         this.name = name;
-        counted = 1;
+        counted = 0;
+        this.isDefault = isDefault;
     }
 
     public FilterObject(BaseData data) {
-        this(data.Name);
+        this(data.Name, false);
         this.data = data;
     }
 
     @Override
     public @NotNull String toString() {
-        return String.format(Locale.GERMAN, "%s (%d Rezepte)", name, counted);
+        return !isDefault ? String.format(Locale.GERMAN, "%s (%d Rezepte)", name, counted) : name;
     }
 }

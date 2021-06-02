@@ -7,6 +7,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.chip.Chip;
 import com.tastyapps.myrecipesmobile.R;
 import com.tastyapps.myrecipesmobile.core.recipes.Category;
+import com.tastyapps.myrecipesmobile.storage.CategoryStorage;
 
 public class CategoryHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
     private Category category;
@@ -16,7 +17,7 @@ public class CategoryHolder extends RecyclerView.ViewHolder implements View.OnCl
     public CategoryHolder(View itemView) {
         super(itemView);
 
-        chipTitle = itemView.findViewById(R.id.card_title);
+        chipTitle = itemView.findViewById(R.id.chip_category_name);
     }
 
     public void bindCategory(Category category) {
@@ -27,8 +28,8 @@ public class CategoryHolder extends RecyclerView.ViewHolder implements View.OnCl
 
     @Override
     public void onClick(View view) {
-        if (view.getId() == R.id.card_title) {
-            //TODO: Implement onclick for category chips
+        if (view.getId() == R.id.chip_category_name) {
+            CategoryStorage.getInstance().onCategorySelect(category);
         }
     }
 }

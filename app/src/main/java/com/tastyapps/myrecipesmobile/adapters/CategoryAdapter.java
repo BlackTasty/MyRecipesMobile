@@ -1,10 +1,8 @@
 package com.tastyapps.myrecipesmobile.adapters;
 
-import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -12,7 +10,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.tastyapps.myrecipesmobile.R;
 import com.tastyapps.myrecipesmobile.core.recipes.Category;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class CategoryAdapter extends RecyclerView.Adapter<CategoryHolder> {
@@ -24,7 +21,7 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryHolder> {
     public CategoryHolder onCreateViewHolder(@NonNull @org.jetbrains.annotations.NotNull ViewGroup parent, int viewType) {
         LayoutInflater layoutInflater = LayoutInflater.from(parent.getContext());
 
-        View view = layoutInflater.inflate(R.layout.layout_card, parent, false);
+        View view = layoutInflater.inflate(R.layout.layout_chip_category, parent, false);
         return new CategoryHolder(view);
     }
 

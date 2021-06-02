@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.tastyapps.myrecipesmobile.R;
+import com.tastyapps.myrecipesmobile.core.FilterObject;
 import com.tastyapps.myrecipesmobile.core.recipes.Recipe;
 import com.tastyapps.myrecipesmobile.core.recipes.RecipeImage;
 import com.tastyapps.myrecipesmobile.storage.RecipeStorage;
@@ -21,11 +22,6 @@ public class RecipeAdapter extends RecyclerView.Adapter<RecipeHolder> {
 
     public RecipeAdapter() {
         this.recipeStorage = RecipeStorage.getInstance();
-    }
-
-    public RecipeAdapter(List<Recipe> recipes) {
-        this();
-        this.recipeStorage.setRecipes(recipes);
     }
 
     public RecipeHolder onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -56,6 +52,21 @@ public class RecipeAdapter extends RecyclerView.Adapter<RecipeHolder> {
 
     public void setRecipes(List<Recipe> recipeStorage) {
         this.recipeStorage.setRecipes(recipeStorage);
+    }
+
+    public void filterRecipesByName(String recipeName) {
+        this.recipeStorage.filterRecipesByName(recipeName);
+        notifyDataSetChanged();
+    }
+
+    public void filterRecipesByCategory(FilterObject categoryFilter) {
+        this.recipeStorage.filterRecipesByCategory(categoryFilter);
+        notifyDataSetChanged();
+    }
+
+    public void filterRecipesByIngredient(List<FilterObject> ingredientsFilter) {
+        this.recipeStorage.filterRecipesByIngredient(ingredientsFilter);
+        notifyDataSetChanged();
     }
 
     /*public void addImageForRecipe(byte[] imageBytes, String guid) {

@@ -1,7 +1,10 @@
 package com.tastyapps.myrecipesmobile.storage;
 
-import android.util.Log;
+import android.content.Context;
+import android.widget.ArrayAdapter;
 
+import com.tastyapps.myrecipesmobile.R;
+import com.tastyapps.myrecipesmobile.core.FilterObject;
 import com.tastyapps.myrecipesmobile.core.events.OnCategoryItemClickedEventListener;
 import com.tastyapps.myrecipesmobile.core.recipes.Category;
 
@@ -14,6 +17,7 @@ public class CategoryStorage {
 
     private OnCategoryItemClickedEventListener onCategoryItemClickedEventListener;
 
+    private ArrayAdapter<FilterObject> filterCategories;
     private List<Category> categories;
 
     public static CategoryStorage getInstance() {
@@ -28,12 +32,35 @@ public class CategoryStorage {
         this.onCategoryItemClickedEventListener = onCategoryItemClickedEventListener;
     }
 
+    public void initializeFilterList(Context appContext) {
+        filterCategories = new ArrayAdapter<>(appContext, R.layout.support_simple_spinner_dropdown_item, new ArrayList<>());
+    }
+
     public List<Category> getCategories() {
         return categories;
     }
 
+    public ArrayAdapter<FilterObject> getFilterCategories() {
+        return filterCategories;
+    }
+
     public void setCategories(List<Category> categories) {
         this.categories = categories;
+        filterCategories.clear();
+        filterCategories.add(new FilterObject("", true));
+        for (Category category : categories) {
+            FilterObject filterCategory = new FilterObject(category);
+            long recipesWithCategory = RecipeStorage.getInstance()
+                    .stream()
+                    .filter(x -> x.Categories.stream().anyMatch(y -> y.Name.equals(category.Name)))
+                    .count();
+
+            filterCategory.setCounted(Math.toIntExact(recipesWithCategory));
+            if (filterCategory.getCounted() > 0) {
+                filterCategories.add(filterCategory);
+            }
+        }
+        filterCategories.notifyDataSetChanged();
     }
 
     public void add(Category category) {
@@ -42,6 +69,9 @@ public class CategoryStorage {
 
     public void clear() {
         categories.clear();
+        if (filterCategories != null) {
+            filterCategories.clear();
+        }
     }
 
     public Category get(int position) {
@@ -50,6 +80,18 @@ public class CategoryStorage {
 
     public Stream<Category> stream() {
         return categories.stream();
+    }
+
+    public int getFilterCategoryIndex(Category category) {
+        for (int i = 0; i < filterCategories.getCount(); i++) {
+            FilterObject current = filterCategories.getItem(i);
+
+            if (!current.isDefault() && current.getName().equals(category.Name)) {
+                return i;
+            }
+        }
+
+        return 0;
     }
 
     public void onCategorySelect(Category category) {
