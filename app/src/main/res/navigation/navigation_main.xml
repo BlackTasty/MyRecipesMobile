@@ -5,12 +5,16 @@
     app:startDestination="@id/menu_recipes">
     <fragment android:id="@+id/menu_history"
         android:label="Verlauf"
-        android:name="com.tastyapps.myrecipesmobile.HistoryFragment"/>
+        android:name="com.tastyapps.myrecipesmobile.HistoryFragment">
+        <action
+            android:id="@+id/action_menu_history_to_menu_recipeview"
+            app:destination="@id/menu_recipeview" />
+    </fragment>
     <fragment android:id="@+id/menu_recipes"
         android:label="Rezepte"
         android:name="com.tastyapps.myrecipesmobile.RecipeListFragment">
         <action
-            android:id="@+id/action_menu_recipes_to_recipeViewFragment"
+            android:id="@+id/action_menu_recipes_to_menu_recipeview"
             app:destination="@id/menu_recipeview" />
     </fragment>
     <fragment android:id="@+id/menu_seasoncalendar"

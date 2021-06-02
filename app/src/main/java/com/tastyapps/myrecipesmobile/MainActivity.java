@@ -3,10 +3,8 @@ package com.tastyapps.myrecipesmobile;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.res.ResourcesCompat;
-import androidx.fragment.app.FragmentContainerView;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
-import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
@@ -16,7 +14,6 @@ import android.util.Log;
 import android.widget.Toast;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.navigation.NavigationView;
 import com.tastyapps.myrecipesmobile.core.events.OnClientConnectedEventListener;
 import com.tastyapps.myrecipesmobile.core.events.OnRecipeItemClickedEventListener;
 import com.tastyapps.myrecipesmobile.core.mobile.MqttClient;
@@ -116,7 +113,12 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("MainActivity", "Recipe item has been clicked, transitioning to RecipeViewFragment...");
                 Bundle bundle = new Bundle();
                 bundle.putString("guid", recipe.Guid);
-                navController.navigate(R.id.action_menu_recipes_to_recipeViewFragment, bundle);
+
+                if (navController.getCurrentDestination().getId() == R.id.menu_recipes) {
+                    navController.navigate(R.id.action_menu_recipes_to_menu_recipeview, bundle);
+                } else {
+                    navController.navigate(R.id.action_menu_history_to_menu_recipeview, bundle);
+                }
 
                 /*getSupportFragmentManager().beginTransaction()
                         .setReorderingAllowed(true)

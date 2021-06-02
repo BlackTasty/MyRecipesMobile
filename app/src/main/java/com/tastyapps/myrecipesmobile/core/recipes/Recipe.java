@@ -33,6 +33,7 @@ public class Recipe extends BaseData {
         Recipe recipe = new Gson().fromJson(json, Recipe.class);
         try {
             recipe.LastAccessDate = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.GERMAN).parse(recipe.LastAccessDateRaw);
+            Log.d("Recipe", "Last access date: " + recipe.LastAccessDate);
         } catch (ParseException ex) {
             Log.d("Recipe","Parsing date failed!");
             ex.printStackTrace();
